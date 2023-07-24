@@ -1,8 +1,9 @@
 import { createContext, useState, useContext } from "react";
-import { HandContext } from "./HandContext";
 import { DeckContext } from "./DeckContext";
 
 export const PlayerContext = createContext({});
+
+const crypto = require("crypto");
 
 function PlayerProvider({ children }) {
 	const [players, setPlayers] = useState([]);
@@ -11,6 +12,7 @@ function PlayerProvider({ children }) {
 
 	function addPlayer(name) {
 		const newPlayer = {
+			_id: generateId(),
 			name: name,
 			hand: [],
 			handValue: 0,
@@ -38,6 +40,11 @@ function PlayerProvider({ children }) {
 	return (
 		<PlayerContext.Provider value={{ players, setPlayers, addPlayer, burnCard }}>{children}</PlayerContext.Provider>
 	);
+}
+
+function generateId() {
+	const bytes = crypto.randomBytes(10);
+	return bytes.toString("hex");
 }
 
 export default PlayerProvider;
