@@ -5,14 +5,6 @@ export const EvaluationContext = createContext({});
 function EvaluationProvider({ children }) {
 	const { currentWild } = useContext(GameContext);
 
-	/*
-    TODO: Resolve Edgecase
-    If WWW7, How do we know if it is Quad 7s: 7777, or a straight: 4567?
-    What if quad 7s already exist on the field?
-    What if a straight of the same suit already exists on the field?
-    e.g 8910J. Do we add on? Or unique?
-    If large enough to put down on its own, just add-on ignoring the putdown first rule.
-    */
 	// Play own cards
 	function canPlay(playedCards) {
 		if (playedCards.length < 3 || playedCards.length > 7) {
@@ -73,8 +65,7 @@ function sanitizeAndTuple(cards) {
 	return tupleStore;
 }
 
-// Convert all card objects to strings
-// [{...}, {...}, ...] -> "3335" + "HDSC"
+// Convert all card values, suits to arrays
 function getValuesAndSuits(playedCards) {
 	let cardValues = [];
 	let cardSuits = [];
@@ -114,9 +105,6 @@ function isValidStraight(cardTuples, currentWild) {
 	// Find amount of holes in regular straight
 	const numberOfHoles = findNumberOfHoles(playedTuples);
 
-	console.log(playedTuples);
-	console.log(wilds);
-	console.log(numberOfHoles);
 	// If no holes or enough wilds to cover holes, return true
 	return numberOfHoles === 0 || wilds.length >= numberOfHoles;
 }
@@ -125,10 +113,10 @@ function areSuitsUniform(tupleArray) {
 	const baseSuit = tupleArray[0][1];
 	for (const tuple of tupleArray) {
 		if (tuple[1] !== baseSuit) {
-			return false; // Found a different suit, not all suits are the same
+			return false;
 		}
 	}
-	return true; // All suits are the same
+	return true;
 }
 
 function findNumberOfHoles(tupleArray) {

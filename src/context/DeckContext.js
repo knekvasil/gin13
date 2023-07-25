@@ -29,6 +29,7 @@ function DeckProvider({ children }) {
 
 		return drawnCard;
 	}
+
 	function drawFromBurnDeck() {
 		if (burnDeck.length === 0) {
 			console.log("Burn Deck is empty!");
