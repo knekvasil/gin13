@@ -64,7 +64,7 @@ Acceptance criteria must be met." || {
 
   git commit -m "Implements #$NUMBER - $TITLE"
 
-  gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented.
+  gh issue close "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent" --comment "Implemented.
 
 $SUMMARY"
 

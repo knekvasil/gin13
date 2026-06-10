@@ -31,7 +31,7 @@ SUMMARY=$(git log --oneline -1 --stat HEAD 2>/dev/null || echo "New implementati
 
 git commit -m "Implements #$NUMBER - $TITLE"
 
-gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented.
+gh issue close "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent" --comment "Implemented.
 
 $SUMMARY"
 
