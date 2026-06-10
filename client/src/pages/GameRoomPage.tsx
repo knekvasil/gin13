@@ -76,9 +76,14 @@ export default function GameRoomPage() {
 
       <h2>Players ({players.length}/4)</h2>
       <ul>
-        {players.map((p) => (
-          <li key={p.sessionId}>{p.name}</li>
-        ))}
+        {Array.from({ length: 4 }, (_, i) => {
+          const p = players[i];
+          return (
+            <li key={i}>
+              {p ? p.name : <em>Waiting for player...</em>}
+            </li>
+          );
+        })}
       </ul>
 
       {status === "waiting" && players.length < 3 && (

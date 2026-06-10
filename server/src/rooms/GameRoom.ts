@@ -64,6 +64,14 @@ export class GameRoom extends Room<GameState> {
   }
 
   async onJoin(client: any, _options: any) {
+    const existingPlayer = this.state.players.find(
+      (p) => p.userId === client.auth.userId,
+    );
+    if (existingPlayer) {
+      existingPlayer.sessionId = client.sessionId;
+      return;
+    }
+
     const player = new Player();
     player.sessionId = client.sessionId;
     player.userId = client.auth.userId;
