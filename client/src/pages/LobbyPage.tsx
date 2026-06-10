@@ -101,6 +101,8 @@ export default function LobbyPage() {
       <div>
         <button onClick={() => setShowCreate(true)} disabled={creating}>Create Room</button>
         <button onClick={handleQuickPlay}>Quick Play</button>
+        <button onClick={() => navigate("/leaderboard")}>Leaderboard</button>
+        <button onClick={() => navigate("/matches")}>Match History</button>
         <button onClick={logout}>Logout</button>
       </div>
 
