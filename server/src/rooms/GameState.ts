@@ -44,6 +44,7 @@ export class GameState extends Schema {
   declare currentPlayerIndex: number;
   declare totalRounds: number;
   declare currentRound: number;
+  declare wildRank: number;
   declare players: ArraySchema<Player>;
   declare drawPile: ArraySchema<CardSchema>;
   declare discardPile: ArraySchema<CardSchema>;
@@ -54,6 +55,7 @@ defineTypes(GameState, {
   currentPlayerIndex: "number",
   totalRounds: "number",
   currentRound: "number",
+  wildRank: "number",
   players: { array: Player },
   drawPile: { array: CardSchema },
   discardPile: { array: CardSchema },
@@ -66,6 +68,7 @@ export function createGameState(totalRounds = 13): GameState {
   state.currentPlayerIndex = 0;
   state.totalRounds = totalRounds;
   state.currentRound = 0;
+  state.wildRank = 1;
   state.players = new ArraySchema<Player>();
   state.drawPile = new ArraySchema<CardSchema>();
   state.discardPile = new ArraySchema<CardSchema>();

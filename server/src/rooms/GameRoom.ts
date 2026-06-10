@@ -11,6 +11,9 @@ import {
   meldCards,
   passMeld,
   discardCard,
+  addToMeld,
+  swapWild,
+  rearrangeMelds,
 } from "./game-engine";
 import { ArraySchema } from "@colyseus/schema";
 
@@ -65,6 +68,18 @@ export class GameRoom extends Room<GameState> {
 
     this.onMessage("discard", (client, msg: { cardIndex: number }) => {
       discardCard(this.state, client.sessionId, msg.cardIndex);
+    });
+
+    this.onMessage("add_to_meld", (client, msg: { cardIndex: number; meldGroupId: string }) => {
+      addToMeld(this.state, client.sessionId, msg.cardIndex, msg.meldGroupId);
+    });
+
+    this.onMessage("swap_wild", (client, msg: { meldGroupId: string; meldCardIndex: number; handCardIndex: number }) => {
+      swapWild(this.state, client.sessionId, msg.meldGroupId, msg.meldCardIndex, msg.handCardIndex);
+    });
+
+    this.onMessage("rearrange_melds", (client, msg: { newMelds: { source: string; index: number }[][] }) => {
+      rearrangeMelds(this.state, client.sessionId, msg.newMelds);
     });
   }
 

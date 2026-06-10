@@ -51,6 +51,7 @@ export function startGame(state: GameState): void {
   state.status = "playing";
   state.phase = "draw";
   state.currentPlayerIndex = 0;
+  state.wildRank = state.currentRound + 1;
 }
 
 function assertPhase(state: GameState, expected: string): void {
@@ -96,16 +97,86 @@ export function drawFromDiscard(state: GameState, sessionId: string): void {
   state.phase = "main_phase";
 }
 
-export function canMeld(cards: { rank: number; suit: number }[]): boolean {
+export function isWild(card: { rank: number; suit?: number }, wildRank: number): boolean {
+  return card.rank === wildRank;
+}
+
+export function canMeld(
+  cards: { rank: number; suit: number }[],
+  wildRank: number,
+): boolean {
   if (cards.length < 3) return false;
-  const rank = cards[0].rank;
+  return isValidSet(cards, wildRank) || isValidStraightFlush(cards, wildRank);
+}
+
+function isValidSet(
+  cards: { rank: number; suit: number }[],
+  wildRank: number,
+): boolean {
+  if (cards.length > 4) return false;
+
+  let setRank: number | null = null;
   const suits = new Set<number>();
+  let wildCount = 0;
+
   for (const card of cards) {
-    if (card.rank !== rank) return false;
+    if (isWild(card, wildRank)) {
+      wildCount++;
+      continue;
+    }
+    if (setRank === null) {
+      setRank = card.rank;
+    } else if (card.rank !== setRank) {
+      return false;
+    }
     if (suits.has(card.suit)) return false;
     suits.add(card.suit);
   }
-  return true;
+
+  if (setRank === null) return false;
+
+  const uniqueSuitsNeeded = cards.length - wildCount;
+  return suits.size === uniqueSuitsNeeded;
+}
+
+function isValidStraightFlush(
+  cards: { rank: number; suit: number }[],
+  wildRank: number,
+): boolean {
+  if (cards.length < 4) return false;
+
+  let suit: number | null = null;
+  const nonWildRanks: number[] = [];
+  let wildCount = 0;
+
+  for (const card of cards) {
+    if (isWild(card, wildRank)) {
+      wildCount++;
+      continue;
+    }
+    if (suit === null) {
+      suit = card.suit;
+    } else if (card.suit !== suit) {
+      return false;
+    }
+    nonWildRanks.push(card.rank);
+  }
+
+  if (suit === null) return false;
+
+  if (nonWildRanks.length === 0) return true;
+
+  const uniqueRanks = new Set(nonWildRanks);
+  if (uniqueRanks.size !== nonWildRanks.length) return false;
+
+  nonWildRanks.sort((a, b) => a - b);
+  const min = nonWildRanks[0]!;
+  const max = nonWildRanks[nonWildRanks.length - 1]!;
+
+  if (max - min >= 12) return false;
+
+  const needed = max - min + 1 - nonWildRanks.length;
+  return needed <= wildCount;
 }
 
 let meldIdCounter = 0;
@@ -134,7 +205,7 @@ export function meldCards(
     cards.unshift(player.hand.splice(idx, 1)[0]);
   }
 
-  if (!canMeld(cards)) {
+  if (!canMeld(cards, state.wildRank)) {
     for (const card of cards) {
       player.hand.push(card);
     }
@@ -146,6 +217,197 @@ export function meldCards(
     card.meldGroupId = groupId;
     player.board.push(card);
   }
+}
+
+function findCardsInMeld(
+  state: GameState,
+  meldGroupId: string,
+): { cards: CardSchema[]; owner: Player } | null {
+  for (const player of state.players) {
+    const cards: CardSchema[] = [];
+    for (const card of player.board) {
+      if (card.meldGroupId === meldGroupId) {
+        cards.push(card);
+      }
+    }
+    if (cards.length > 0) {
+      return { cards, owner: player };
+    }
+  }
+  return null;
+}
+
+export function addToMeld(
+  state: GameState,
+  sessionId: string,
+  cardIndex: number,
+  meldGroupId: string,
+): void {
+  assertPhase(state, "main_phase");
+  assertCurrentPlayer(state, sessionId);
+
+  const player = getCurrentPlayer(state);
+
+  if (player.board.length === 0) {
+    throw new Error("Must have laid down before manipulating");
+  }
+
+  if (cardIndex < 0 || cardIndex >= player.hand.length) {
+    throw new Error("Invalid card index");
+  }
+
+  const card = player.hand.splice(cardIndex, 1)[0];
+
+  const found = findCardsInMeld(state, meldGroupId);
+  if (!found) {
+    player.hand.push(card);
+    throw new Error("Meld not found");
+  }
+
+  const newCards = [...found.cards, card];
+  if (!canMeld(newCards, state.wildRank)) {
+    player.hand.push(card);
+    throw new Error("Invalid manipulation");
+  }
+
+  card.meldGroupId = meldGroupId;
+  found.owner.board.push(card);
+}
+
+export function rearrangeMelds(
+  state: GameState,
+  sessionId: string,
+  newMelds: { source: string; index: number }[][],
+): void {
+  assertPhase(state, "main_phase");
+  assertCurrentPlayer(state, sessionId);
+
+  const player = getCurrentPlayer(state);
+
+  if (player.board.length === 0) {
+    throw new Error("Must have laid down before manipulating");
+  }
+
+  const allRefs = newMelds.flat();
+  const seen = new Set<string>();
+
+  const takenCards: CardSchema[] = [];
+  const takenFromBoard: { card: CardSchema; owner: Player }[] = [];
+  const takenFromHand: CardSchema[] = [];
+
+  for (const ref of allRefs) {
+    const key = `${ref.source}:${ref.index}`;
+    if (seen.has(key)) throw new Error("Duplicate card reference");
+    seen.add(key);
+  }
+
+  for (const ref of allRefs) {
+    if (ref.source === "hand") {
+      if (ref.index < 0 || ref.index >= player.hand.length) {
+        throw new Error("Invalid hand card index");
+      }
+      const card = player.hand[ref.index]!;
+      takenCards.push(card);
+      takenFromHand.push(card);
+    } else {
+      const found = findCardsInMeld(state, ref.source);
+      if (!found) throw new Error("Meld not found");
+      const { cards: meldCards, owner } = found;
+      if (ref.index < 0 || ref.index >= meldCards.length) {
+        throw new Error("Invalid meld card index");
+      }
+      const card = meldCards[ref.index]!;
+      takenCards.push(card);
+      takenFromBoard.push({ card, owner });
+    }
+  }
+
+  let cursor = 0;
+  const groups: CardSchema[][] = [];
+  for (const group of newMelds) {
+    const meld = takenCards.slice(cursor, cursor + group.length);
+    if (!canMeld(meld, state.wildRank)) {
+      throw new Error("Invalid manipulation");
+    }
+    groups.push(meld);
+    cursor += group.length;
+  }
+
+  const handIndices = takenFromHand.map((c) => player.hand.indexOf(c));
+  handIndices.sort((a, b) => b - a);
+  for (const idx of handIndices) {
+    player.hand.splice(idx, 1);
+  }
+
+  for (const { card, owner } of takenFromBoard) {
+    const boardIdx = owner.board.findIndex((c) => c === card);
+    if (boardIdx !== -1) {
+      owner.board.splice(boardIdx, 1);
+    }
+  }
+
+  for (const group of groups) {
+    const groupId = nextMeldGroupId();
+    for (const card of group) {
+      card.meldGroupId = groupId;
+      player.board.push(card);
+    }
+  }
+}
+
+export function swapWild(
+  state: GameState,
+  sessionId: string,
+  meldGroupId: string,
+  meldCardIndex: number,
+  handCardIndex: number,
+): void {
+  assertPhase(state, "main_phase");
+  assertCurrentPlayer(state, sessionId);
+
+  const player = getCurrentPlayer(state);
+
+  if (player.board.length === 0) {
+    throw new Error("Must have laid down before manipulating");
+  }
+
+  const found = findCardsInMeld(state, meldGroupId);
+  if (!found) throw new Error("Meld not found");
+
+  const { cards: meldCards, owner } = found;
+  if (meldCardIndex < 0 || meldCardIndex >= meldCards.length) {
+    throw new Error("Invalid meld card index");
+  }
+
+  const wildCard = meldCards[meldCardIndex]!;
+  if (!isWild(wildCard, state.wildRank)) {
+    throw new Error("Card is not a wild");
+  }
+
+  if (handCardIndex < 0 || handCardIndex >= player.hand.length) {
+    throw new Error("Invalid card index");
+  }
+
+  const replacement = player.hand.splice(handCardIndex, 1)[0];
+
+  const newMeldCards = meldCards.filter((c) => c !== wildCard);
+  newMeldCards.push(replacement);
+
+  if (!canMeld(newMeldCards, state.wildRank)) {
+    player.hand.push(replacement);
+    throw new Error("Invalid manipulation");
+  }
+
+  const boardIndex = owner.board.findIndex((c) => c === wildCard);
+  if (boardIndex !== -1) {
+    owner.board.splice(boardIndex, 1);
+  }
+
+  replacement.meldGroupId = meldGroupId;
+  owner.board.push(replacement);
+
+  wildCard.meldGroupId = "";
+  player.hand.push(wildCard);
 }
 
 export function passMeld(state: GameState, sessionId: string): void {
@@ -163,6 +425,13 @@ export function discardCard(
   assertCurrentPlayer(state, sessionId);
 
   const player = getCurrentPlayer(state);
+
+  if (player.hand.length === 0) {
+    state.status = "finished";
+    state.phase = "finished";
+    return;
+  }
+
   if (cardIndex < 0 || cardIndex >= player.hand.length) {
     throw new Error("Invalid card index");
   }
