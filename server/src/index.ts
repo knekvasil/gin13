@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import cors from "cors";
 import { Server } from "colyseus";
 import authRouter from "./auth";
 import { GameRoom } from "./rooms/GameRoom";
@@ -8,6 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const gameServer = new Server({ server });
 
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 app.use("/auth", authRouter);
 
