@@ -80,6 +80,11 @@ export class GameRoom extends Room<GameState> {
         clearTimeout(timeout);
         this.disconnectTimeouts.delete(client.auth.userId);
       }
+
+      this.setMetadata({
+        totalRounds: this.state.totalRounds,
+        players: this.clients.length,
+      });
       return;
     }
 
@@ -102,7 +107,7 @@ export class GameRoom extends Room<GameState> {
 
     this.setMetadata({
       totalRounds: this.state.totalRounds,
-      players: this.state.players.length,
+      players: this.clients.length,
     });
   }
 
@@ -114,6 +119,11 @@ export class GameRoom extends Room<GameState> {
 
     const userId = player.userId;
 
+    this.setMetadata({
+      totalRounds: this.state.totalRounds,
+      players: Math.max(0, this.clients.length - 1),
+    });
+
     const timeout = setTimeout(() => {
       this.disconnectTimeouts.delete(userId);
 
@@ -121,11 +131,6 @@ export class GameRoom extends Room<GameState> {
       if (idx !== -1) {
         this.state.players.splice(idx, 1);
       }
-
-      this.setMetadata({
-        totalRounds: this.state.totalRounds,
-        players: this.state.players.length,
-      });
 
       if (this.state.players.length === 0) {
         this.disconnect().catch(() => {});

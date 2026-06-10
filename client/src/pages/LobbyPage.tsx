@@ -17,6 +17,7 @@ export default function LobbyPage() {
   const [rooms, setRooms] = useState<RoomEntry[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [roundCount, setRoundCount] = useState(13);
+  const [creating, setCreating] = useState(false);
   const clientRef = useRef<Client | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -56,14 +57,16 @@ export default function LobbyPage() {
 
   const handleCreate = useCallback(async () => {
     const c = clientRef.current;
-    if (!c || !token) return;
+    if (!c || !token || creating) return;
+    setCreating(true);
     try {
       const room = await c.create("game_room", { totalRounds: roundCount });
       navigate(`/game/${room.roomId}`);
     } catch (err) {
       console.error("create room failed", err);
+      setCreating(false);
     }
-  }, [token, roundCount, navigate]);
+  }, [token, roundCount, navigate, creating]);
 
   const handleQuickPlay = useCallback(async () => {
     const c = clientRef.current;
@@ -96,7 +99,7 @@ export default function LobbyPage() {
       <p>Welcome, {user?.displayName}!</p>
 
       <div>
-        <button onClick={() => setShowCreate(true)}>Create Room</button>
+        <button onClick={() => setShowCreate(true)} disabled={creating}>Create Room</button>
         <button onClick={handleQuickPlay}>Quick Play</button>
         <button onClick={logout}>Logout</button>
       </div>
@@ -127,7 +130,7 @@ export default function LobbyPage() {
           {rooms.map((room) => (
             <li key={room.roomId}>
               <span>
-                {room.metadata?.players ?? room.clients}/{room.maxClients}
+                {room.clients}/{room.maxClients}
               </span>
               <span> | {room.metadata?.totalRounds ?? "?"} rounds</span>
               <button onClick={() => handleJoin(room.roomId)} disabled={room.clients >= room.maxClients}>
