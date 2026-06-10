@@ -14,7 +14,11 @@ import {
 } from "./game-engine";
 import { ArraySchema } from "@colyseus/schema";
 
+const RECONNECT_TIMEOUT_MS = 60_000;
+
 export class GameRoom extends Room<GameState> {
+  private disconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
   static async onAuth(token: string, _req: http.IncomingMessage) {
     const payload = verifyToken(token);
     if (!payload) return false;
@@ -23,6 +27,7 @@ export class GameRoom extends Room<GameState> {
 
   async onCreate(options: any) {
     this.maxClients = 4;
+    this.autoDispose = false;
     const totalRounds = options.totalRounds || 13;
 
     this.setState(createGameState(totalRounds));
@@ -69,6 +74,12 @@ export class GameRoom extends Room<GameState> {
     );
     if (existingPlayer) {
       existingPlayer.sessionId = client.sessionId;
+
+      const timeout = this.disconnectTimeouts.get(client.auth.userId);
+      if (timeout) {
+        clearTimeout(timeout);
+        this.disconnectTimeouts.delete(client.auth.userId);
+      }
       return;
     }
 
@@ -96,20 +107,40 @@ export class GameRoom extends Room<GameState> {
   }
 
   onLeave(client: any) {
-    const idx = this.state.players.findIndex(
+    const player = this.state.players.find(
       (p) => p.sessionId === client.sessionId,
     );
-    if (idx !== -1) {
-      this.state.players.splice(idx, 1);
-    }
+    if (!player) return;
 
-    this.setMetadata({
-      totalRounds: this.state.totalRounds,
-      players: this.state.players.length,
-    });
+    const userId = player.userId;
+
+    const timeout = setTimeout(() => {
+      this.disconnectTimeouts.delete(userId);
+
+      const idx = this.state.players.findIndex((p) => p.userId === userId);
+      if (idx !== -1) {
+        this.state.players.splice(idx, 1);
+      }
+
+      this.setMetadata({
+        totalRounds: this.state.totalRounds,
+        players: this.state.players.length,
+      });
+
+      if (this.state.players.length === 0) {
+        this.disconnect().catch(() => {});
+      }
+    }, RECONNECT_TIMEOUT_MS);
+
+    this.disconnectTimeouts.set(userId, timeout);
   }
 
   async onDispose() {
+    for (const timeout of this.disconnectTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    this.disconnectTimeouts.clear();
+
     await prisma.match.update({
       where: { id: this.roomId },
       data: { status: "FINISHED", endedAt: new Date() },
