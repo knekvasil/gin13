@@ -36,12 +36,13 @@ git add -A
 git commit -m "Implements #$NUMBER - $TITLE"
 git push
 
-SUMMARY=$(git log --oneline -1 --stat HEAD 2>/dev/null || echo "New implementation")
+SHA=$(git rev-parse --short HEAD)
+FILES=$(git diff --stat HEAD~1..HEAD 2>/dev/null | sed '$d' || echo "  (new files)")
 
 gh issue edit "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent"
-gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented.
+gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented in $SHA.
 
-$SUMMARY"
+$FILES"
 
 echo "- [x] #$NUMBER - $TITLE" >> ralph/progress.md
 
