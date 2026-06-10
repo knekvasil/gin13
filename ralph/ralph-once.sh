@@ -15,7 +15,7 @@ echo "=== Issue #$NUMBER - $TITLE ==="
 
 BODY=$(gh issue view "$NUMBER" --repo knekvasil/gin13 --json body --jq '.body')
 
-opencode run "Implement issue #$NUMBER - $TITLE
+opencode run --dangerously-skip-permissions "Implement issue #$NUMBER - $TITLE
 
 $BODY
 
