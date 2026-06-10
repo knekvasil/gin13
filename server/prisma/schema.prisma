@@ -23,12 +23,13 @@ model User {
 }
 
 model Match {
-  id          String        @id @default(uuid())
-  status      MatchStatus   @default(WAITING)
-  totalRounds Int           @default(13)
-  createdAt   DateTime      @default(now())
-  endedAt     DateTime?
-  players     MatchPlayer[]
+  id           String        @id @default(uuid())
+  status       MatchStatus   @default(WAITING)
+  totalRounds  Int           @default(13)
+  createdAt    DateTime      @default(now())
+  endedAt      DateTime?
+  players      MatchPlayer[]
+  roundResults RoundResult[]
 }
 
 model MatchPlayer {
@@ -41,4 +42,16 @@ model MatchPlayer {
   user      User    @relation(fields: [userId], references: [id])
 
   @@unique([matchId, userId])
+}
+
+model RoundResult {
+  id          String   @id @default(uuid())
+  matchId     String
+  roundNumber Int
+  wildRank    Int
+  playerId    String
+  handScore   Int
+  match       Match    @relation(fields: [matchId], references: [id])
+
+  @@unique([matchId, roundNumber, playerId])
 }

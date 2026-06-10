@@ -29,6 +29,8 @@ export class Player extends Schema {
   declare name: string;
   declare hand: ArraySchema<CardSchema>;
   declare board: ArraySchema<CardSchema>;
+  declare score: number;
+  declare disconnected: boolean;
 }
 defineTypes(Player, {
   sessionId: "string",
@@ -36,6 +38,8 @@ defineTypes(Player, {
   name: "string",
   hand: { array: CardSchema },
   board: { array: CardSchema },
+  score: "number",
+  disconnected: "boolean",
 });
 
 export class GameState extends Schema {
@@ -45,6 +49,7 @@ export class GameState extends Schema {
   declare totalRounds: number;
   declare currentRound: number;
   declare wildRank: number;
+  declare winnerSessionId: string;
   declare players: ArraySchema<Player>;
   declare drawPile: ArraySchema<CardSchema>;
   declare discardPile: ArraySchema<CardSchema>;
@@ -56,6 +61,7 @@ defineTypes(GameState, {
   totalRounds: "number",
   currentRound: "number",
   wildRank: "number",
+  winnerSessionId: "string",
   players: { array: Player },
   drawPile: { array: CardSchema },
   discardPile: { array: CardSchema },
@@ -69,6 +75,7 @@ export function createGameState(totalRounds = 13): GameState {
   state.totalRounds = totalRounds;
   state.currentRound = 0;
   state.wildRank = 1;
+  state.winnerSessionId = "";
   state.players = new ArraySchema<Player>();
   state.drawPile = new ArraySchema<CardSchema>();
   state.discardPile = new ArraySchema<CardSchema>();

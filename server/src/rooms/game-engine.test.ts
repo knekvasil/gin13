@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ArraySchema } from "@colyseus/schema";
 import { GameState, Player, createGameState, CardSchema, createCard } from "./GameState";
-import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, rearrangeMelds } from "./game-engine";
+import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, rearrangeMelds, calculateRoundScores, startNextRound, endMatch, autoPlayTurn } from "./game-engine";
 
 function twoPlayerState(): GameState {
   const state = createGameState();
@@ -199,12 +199,14 @@ describe("going out", () => {
     state.status = "playing";
     state.phase = "discard";
     state.currentPlayerIndex = 0;
+    state.currentRound = 1;
 
     const p1 = new Player();
     p1.sessionId = "s1";
     p1.name = "Alice";
     p1.hand = new ArraySchema<CardSchema>();
     p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
     addCardsToHand(p1, [{ rank: 5, suit: 0 }]);
 
     const p2 = new Player();
@@ -212,6 +214,7 @@ describe("going out", () => {
     p2.name = "Bob";
     p2.hand = new ArraySchema<CardSchema>();
     p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
     addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
 
     state.players.push(p1, p2);
@@ -220,8 +223,7 @@ describe("going out", () => {
 
     expect(p1.hand.length).toBe(0);
     expect(state.discardPile.length).toBe(1);
-    expect(state.status).toBe("finished");
-    expect(state.phase).toBe("finished");
+    expect(state.phase).toBe("round_ended");
   });
 });
 
@@ -667,17 +669,19 @@ describe("rearrangeMelds", () => {
 });
 
 describe("going out via manipulation", () => {
-  it("ends the game when player adds last hand cards to existing melds and discards", () => {
+  it("ends the round when player adds last hand cards to existing melds and discards", () => {
     const state = createGameState();
     state.status = "playing";
     state.phase = "main_phase";
     state.currentPlayerIndex = 0;
+    state.currentRound = 1;
 
     const p1 = new Player();
     p1.sessionId = "s1";
     p1.name = "Alice";
     p1.hand = new ArraySchema<CardSchema>();
     p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
     addCardsToHand(p1, [
       { rank: 5, suit: 0 },
       { rank: 6, suit: 0 },
@@ -692,6 +696,7 @@ describe("going out via manipulation", () => {
     p2.name = "Bob";
     p2.hand = new ArraySchema<CardSchema>();
     p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
     addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
 
     state.players.push(p1, p2);
@@ -715,8 +720,245 @@ describe("going out via manipulation", () => {
 
     discardCard(state, "s1", 0);
 
+    expect(state.phase).toBe("round_ended");
+  });
+});
+
+describe("round scoring", () => {
+  it("calculates scores when a player goes out: out player scores 0, others sum hand card values (non-wild=rank, wild=25)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "discard";
+    state.currentPlayerIndex = 0;
+    state.currentRound = 1;
+    state.wildRank = 2;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    addCardsToHand(p1, [{ rank: 5, suit: 0 }]);
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [
+      { rank: 5, suit: 1 },  // non-wild → 5 points
+      { rank: 10, suit: 2 }, // non-wild → 10 points
+    ]);
+
+    state.players.push(p1, p2);
+
+    discardCard(state, "s1", 0);
+
+    expect(state.phase).toBe("round_ended");
+    expect(p1.score).toBe(0);
+    expect(p2.score).toBe(15);
+  });
+
+  it("counts wild cards as 25 points each", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "discard";
+    state.currentPlayerIndex = 0;
+    state.currentRound = 1;
+    state.wildRank = 2;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    addCardsToHand(p1, [{ rank: 5, suit: 0 }]);
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [
+      { rank: 2, suit: 0 },  // wild (rank matches wildRank) → 25
+      { rank: 3, suit: 1 },  // non-wild → 3
+    ]);
+
+    state.players.push(p1, p2);
+
+    discardCard(state, "s1", 0);
+
+    expect(p2.score).toBe(28);
+  });
+});
+
+describe("endMatch", () => {
+  it("declares player with lowest cumulative score as winner", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "round_ended";
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.userId = "u1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 30;
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.userId = "u2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 15;
+
+    const p3 = new Player();
+    p3.sessionId = "s3";
+    p3.userId = "u3";
+    p3.name = "Charlie";
+    p3.hand = new ArraySchema<CardSchema>();
+    p3.board = new ArraySchema<CardSchema>();
+    p3.score = 42;
+
+    state.players.push(p1, p2, p3);
+
+    endMatch(state);
+
     expect(state.status).toBe("finished");
     expect(state.phase).toBe("finished");
+    expect(state.winnerSessionId).toBe("s2");
+  });
+});
+
+describe("startNextRound", () => {
+  it("ends match when all rounds are completed (round 13)", () => {
+    const state = createGameState(2);
+    state.status = "playing";
+    state.phase = "round_ended";
+    state.currentRound = 1;
+    state.wildRank = 2;
+    state.currentPlayerIndex = 0;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.userId = "u1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 20;
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.userId = "u2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 10;
+
+    state.players.push(p1, p2);
+
+    startNextRound(state);
+
+    expect(state.status).toBe("finished");
+    expect(state.phase).toBe("finished");
+    expect(state.winnerSessionId).toBe("s2");
+  });
+
+  it("increments round, updates wild rank, rotates first player, and deals fresh cards", () => {
+    const state = createGameState(13);
+    state.status = "playing";
+    state.phase = "round_ended";
+    state.currentRound = 0;
+    state.wildRank = 1;
+    state.currentPlayerIndex = 0;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.userId = "u1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 10;
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.userId = "u2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 20;
+
+    state.players.push(p1, p2);
+
+    startNextRound(state);
+
+    expect(state.currentRound).toBe(1);
+    expect(state.wildRank).toBe(2);
+    expect(state.currentPlayerIndex).toBe(1);
+    expect(state.phase).toBe("draw");
+    expect(state.status).toBe("playing");
+    expect(p1.hand.length).toBe(7);
+    expect(p2.hand.length).toBe(7);
+    expect(p1.board.length).toBe(0);
+    expect(p2.board.length).toBe(0);
+    expect(state.drawPile.length).toBe(52 - 2 * 7 - 1);
+    expect(state.discardPile.length).toBe(1);
+    expect(p1.score).toBe(10);
+    expect(p2.score).toBe(20);
+  });
+});
+
+describe("autoPlayTurn", () => {
+  it("draws from deck, passes meld, and discards highest-point card when timer expires", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "draw";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },  // wild → 25 points
+      { rank: 5, suit: 1 },  // 5 points
+    ]);
+
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
+
+    state.players.push(p1, p2);
+    state.drawPile.push(createCard(8, 0), createCard(9, 0));
+
+    // auto-play completes the entire turn: draw → pass meld → discard highest-point card
+    autoPlayTurn(state);
+
+    // After drawing 1 card (2→3), discarding highest-point (wild, 25pts) → 2 cards remain
+    expect(p1.hand.length).toBe(2);
+    expect(state.drawPile.length).toBe(1);
+
+    // Turn passed to next player
+    expect(state.currentPlayerIndex).toBe(1);
+    expect(state.phase).toBe("draw");
+
+    // The discarded card should be the wild (highest points = 25)
+    const discarded = state.discardPile[0]!;
+    expect(discarded.rank).toBe(1);
+    expect(discarded.suit).toBe(0);
   });
 });
 

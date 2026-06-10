@@ -10,6 +10,8 @@ const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockMatchPlayerCreate = vi.fn();
 const mockMatchPlayerFindUnique = vi.fn();
+const mockMatchPlayerUpdate = vi.fn();
+const mockRoundResultCreate = vi.fn();
 
 vi.mock("../db", () => ({
   prisma: {
@@ -20,6 +22,10 @@ vi.mock("../db", () => ({
     matchPlayer: {
       create: (...args: any[]) => mockMatchPlayerCreate(...args),
       findUnique: (...args: any[]) => mockMatchPlayerFindUnique(...args),
+      update: (...args: any[]) => mockMatchPlayerUpdate(...args),
+    },
+    roundResult: {
+      create: (...args: any[]) => mockRoundResultCreate(...args),
     },
   },
 }));
@@ -55,6 +61,8 @@ describe("GameRoom integration", () => {
     mockUpdate.mockResolvedValue({});
     mockMatchPlayerCreate.mockResolvedValue({});
     mockMatchPlayerFindUnique.mockResolvedValue(null);
+    mockMatchPlayerUpdate.mockResolvedValue({});
+    mockRoundResultCreate.mockResolvedValue({});
   });
 
   function authedClient() {

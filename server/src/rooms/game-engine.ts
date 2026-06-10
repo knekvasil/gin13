@@ -54,6 +54,58 @@ export function startGame(state: GameState): void {
   state.wildRank = state.currentRound + 1;
 }
 
+export function endMatch(state: GameState): void {
+  let lowestScore = Infinity;
+  let winnerSessionId = "";
+  for (const player of state.players) {
+    if (player.score < lowestScore) {
+      lowestScore = player.score;
+      winnerSessionId = player.sessionId;
+    }
+  }
+  state.winnerSessionId = winnerSessionId;
+  state.status = "finished";
+  state.phase = "finished";
+}
+
+export function startNextRound(state: GameState): void {
+  state.currentRound++;
+  if (state.currentRound >= state.totalRounds) {
+    endMatch(state);
+    return;
+  }
+
+  const deck = shuffleDeck(createDeck());
+  const cardsPerPlayer = 7;
+  const { hands, remainingDeck } = dealCards(
+    deck,
+    cardsPerPlayer,
+    state.players.length,
+  );
+
+  for (let i = 0; i < state.players.length; i++) {
+    const player = state.players[i]!;
+    player.hand = toArraySchema(hands[i].map((c) => toCardSchema(c)));
+    player.board = new ArraySchema<CardSchema>();
+  }
+
+  state.drawPile = toArraySchema(
+    remainingDeck.map((c) => toCardSchema(c)),
+  );
+  state.discardPile = new ArraySchema<CardSchema>();
+
+  const topCard = state.drawPile.pop();
+  if (topCard) {
+    state.discardPile.push(topCard);
+  }
+
+  state.wildRank = state.currentRound + 1;
+  state.currentPlayerIndex =
+    (state.currentPlayerIndex + 1) % state.players.length;
+  state.status = "playing";
+  state.phase = "draw";
+}
+
 function assertPhase(state: GameState, expected: string): void {
   if (state.phase !== expected) {
     throw new Error(
@@ -416,6 +468,80 @@ export function passMeld(state: GameState, sessionId: string): void {
   state.phase = "discard";
 }
 
+export function calculateRoundScores(state: GameState): Map<string, number> {
+  const scores = new Map<string, number>();
+  for (const player of state.players) {
+    let roundScore = 0;
+    for (const card of player.hand) {
+      if (isWild(card, state.wildRank)) {
+        roundScore += 25;
+      } else {
+        roundScore += card.rank;
+      }
+    }
+    scores.set(player.sessionId, roundScore);
+  }
+  return scores;
+}
+
+export function endRound(state: GameState): Map<string, number> {
+  const scores = calculateRoundScores(state);
+  for (const player of state.players) {
+    const s = scores.get(player.sessionId);
+    if (s !== undefined) {
+      player.score += s;
+    }
+  }
+  state.phase = "round_ended";
+  return scores;
+}
+
+function getHighestPointCardIndex(player: Player, wildRank: number): number {
+  let highestIdx = 0;
+  let highestPoints = -1;
+  for (let i = 0; i < player.hand.length; i++) {
+    const card = player.hand[i]!;
+    const points = isWild(card, wildRank) ? 25 : card.rank;
+    if (points > highestPoints) {
+      highestPoints = points;
+      highestIdx = i;
+    }
+  }
+  return highestIdx;
+}
+
+export function autoPlayTurn(state: GameState): void {
+  if (state.phase === "draw") {
+    const card = state.drawPile.pop();
+    if (card) {
+      card.meldGroupId = "";
+      getCurrentPlayer(state).hand.push(card);
+    }
+    state.phase = "main_phase";
+  }
+
+  if (state.phase === "main_phase") {
+    state.phase = "discard";
+  }
+
+  if (state.phase === "discard") {
+    const player = getCurrentPlayer(state);
+    if (player.hand.length > 0) {
+      const idx = getHighestPointCardIndex(player, state.wildRank);
+      const card = player.hand.splice(idx, 1)[0];
+      card.meldGroupId = "";
+      state.discardPile.push(card);
+    }
+    if (player.hand.length === 0) {
+      endRound(state);
+      return;
+    }
+    state.currentPlayerIndex =
+      (state.currentPlayerIndex + 1) % state.players.length;
+    state.phase = "draw";
+  }
+}
+
 export function discardCard(
   state: GameState,
   sessionId: string,
@@ -427,8 +553,7 @@ export function discardCard(
   const player = getCurrentPlayer(state);
 
   if (player.hand.length === 0) {
-    state.status = "finished";
-    state.phase = "finished";
+    endRound(state);
     return;
   }
 
@@ -443,8 +568,7 @@ export function discardCard(
   state.phase = "end_turn";
 
   if (player.hand.length === 0) {
-    state.status = "finished";
-    state.phase = "finished";
+    endRound(state);
   } else {
     state.currentPlayerIndex =
       (state.currentPlayerIndex + 1) % state.players.length;
