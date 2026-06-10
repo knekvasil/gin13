@@ -5,7 +5,7 @@ import { createColyseusClient } from "../auth/colyseus";
 import type { Room } from "colyseus.js";
 import Card from "../components/Card";
 
-type InteractionMode = "none" | "adding" | "swapping" | "rearranging";
+type InteractionMode = "none" | "adding" | "swapping";
 
 interface CardData {
   rank: number;
@@ -44,8 +44,6 @@ export default function GameRoomPage() {
   const [interactionMode, setInteractionMode] = useState<InteractionMode>("none");
   const [addCardIndex, setAddCardIndex] = useState<number | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ meldGroupId: string; meldCardIndex: number } | null>(null);
-  const [rearrangeNewMelds, setRearrangeNewMelds] = useState<{ source: string; index: number }[][] | null>(null);
-  const [rearrangeSelected, setRearrangeSelected] = useState<{ source: string; index: number } | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
   const [timerPct, setTimerPct] = useState(100);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -211,8 +209,6 @@ export default function GameRoomPage() {
     setInteractionMode("none");
     setAddCardIndex(null);
     setSwapTarget(null);
-    setRearrangeNewMelds(null);
-    setRearrangeSelected(null);
     setMeldError(null);
   };
 
@@ -220,66 +216,7 @@ export default function GameRoomPage() {
     setInteractionMode("adding");
     setAddCardIndex(null);
     setSwapTarget(null);
-    setRearrangeNewMelds(null);
     setMeldError(null);
-  };
-
-  const handleEnterRearrangeMode = () => {
-    const meldGroups = new Map<string, CardData[]>();
-    for (const card of myBoard) {
-      if (!card.meldGroupId) continue;
-      const group = meldGroups.get(card.meldGroupId);
-      if (group) group.push(card);
-      else meldGroups.set(card.meldGroupId, [card]);
-    }
-    const newMelds: { source: string; index: number }[][] = [];
-    for (const [groupId, group] of meldGroups) {
-      newMelds.push(group.map((_, idx) => ({ source: groupId, index: idx })));
-    }
-    setRearrangeNewMelds(newMelds);
-    setInteractionMode("rearranging");
-    setMeldError(null);
-  };
-
-  const handleDoneRearrange = () => {
-    if (!room || !rearrangeNewMelds) return;
-    room.send("rearrange_melds", { newMelds: rearrangeNewMelds });
-    setInteractionMode("none");
-    setRearrangeNewMelds(null);
-    setRearrangeSelected(null);
-    setMeldError(null);
-  };
-
-  const handleRearrangeCardClick = (source: string, index: number) => {
-    if (rearrangeSelected && rearrangeSelected.source === source && rearrangeSelected.index === index) {
-      setRearrangeSelected(null);
-      return;
-    }
-    setRearrangeSelected({ source, index });
-  };
-
-  const handleRearrangeMoveToGroup = (targetGroupIdx: number) => {
-    if (!rearrangeSelected || !rearrangeNewMelds) return;
-    const newMelds = rearrangeNewMelds.map((group) => [...group]);
-    let cardRef: { source: string; index: number } | null = null;
-    let sourceGroupIdx = -1;
-    for (let gi = 0; gi < newMelds.length; gi++) {
-      const foundIdx = newMelds[gi].findIndex(
-        (ref) => ref.source === rearrangeSelected.source && ref.index === rearrangeSelected.index,
-      );
-      if (foundIdx !== -1) {
-        cardRef = newMelds[gi][foundIdx];
-        newMelds[gi] = newMelds[gi].filter((_, i) => i !== foundIdx);
-        sourceGroupIdx = gi;
-        break;
-      }
-    }
-    if (!cardRef || sourceGroupIdx === -1) return;
-    const filtered = newMelds.filter((g) => g.length > 0);
-    const adjustedTarget = targetGroupIdx <= sourceGroupIdx ? targetGroupIdx : targetGroupIdx;
-    filtered[adjustedTarget] = [...filtered[adjustedTarget], cardRef];
-    setRearrangeNewMelds(filtered);
-    setRearrangeSelected(null);
   };
 
   const handleHandClick = (cardIndex: number) => {
@@ -449,8 +386,6 @@ export default function GameRoomPage() {
                     <div key={player.sessionId} style={{ marginBottom: 12 }}>
                       <p style={{ fontWeight: "bold", fontSize: 14 }}>{player.name}</p>
                       {groupEntries.map(([meldGroupId, group], gi) => {
-                        const isTarget = interactionMode === "rearranging" && !!rearrangeSelected;
-                        const isRearrangeDropTarget = isTarget && isOwn;
                         return (
                           <div
                             key={meldGroupId}
@@ -458,9 +393,7 @@ export default function GameRoomPage() {
                             onClick={
                               interactionMode === "adding"
                                 ? () => handleAddToMeld(meldGroupId)
-                                : interactionMode === "rearranging" && isOwn && rearrangeSelected
-                                  ? () => handleRearrangeMoveToGroup(gi)
-                                  : undefined
+                                : undefined
                             }
                             style={{
                               display: "flex",
@@ -473,18 +406,10 @@ export default function GameRoomPage() {
                                 cursor: "pointer",
                                 background: "#f0faf0",
                               } : {}),
-                              ...(isRearrangeDropTarget ? {
-                                outline: "2px dashed #2196f3",
-                                borderRadius: 6,
-                                padding: 4,
-                                cursor: "pointer",
-                                background: "#e3f2fd",
-                              } : {}),
                             }}
                           >
                             {group.map((card, ci) => {
                               const isSelectedForSwap = interactionMode === "swapping" && swapTarget?.meldGroupId === meldGroupId && swapTarget?.meldCardIndex === ci;
-                              const isSelectedForRearrange = interactionMode === "rearranging" && rearrangeSelected?.source === meldGroupId && rearrangeSelected?.index === ci;
                               return (
                                 <Card
                                   key={ci}
@@ -494,11 +419,9 @@ export default function GameRoomPage() {
                                   onClick={
                                     isOwn && canMeld && card.rank === wildRank && interactionMode === "none"
                                       ? () => handleBoardCardClick(card, ci)
-                                      : isOwn && interactionMode === "rearranging"
-                                        ? () => handleRearrangeCardClick(meldGroupId, ci)
-                                        : undefined
+                                      : undefined
                                   }
-                                  selected={isSelectedForSwap || isSelectedForRearrange}
+                                  selected={isSelectedForSwap}
                                 />
                               );
                             })}
@@ -543,16 +466,9 @@ export default function GameRoomPage() {
                       ? "Adding to meld — select a card from your hand"
                       : "Adding to meld — click a meld group")}
                     {interactionMode === "swapping" && "Swapping wild — click a hand card to swap"}
-                    {interactionMode === "rearranging" && "Rearranging — click cards to move between meld groups"}
                   </p>
                 )}
-                {interactionMode === "rearranging" ? (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button onClick={handleDoneRearrange}>Done</button>
-                    <button onClick={handleCancelMode}>Cancel</button>
-                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
-                  </div>
-                ) : interactionMode !== "none" ? (
+                {interactionMode !== "none" ? (
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button onClick={handleCancelMode}>Cancel</button>
                     {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
@@ -564,7 +480,6 @@ export default function GameRoomPage() {
                     </button>
                     <button onClick={handlePassMeld}>Pass Meld</button>
                     {hasMelds && <button onClick={handleEnterAddMode}>Add to Meld</button>}
-                    {hasMelds && <button onClick={handleEnterRearrangeMode}>Rearrange</button>}
                     {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
                   </div>
                 )}

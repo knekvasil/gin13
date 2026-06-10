@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ArraySchema } from "@colyseus/schema";
 import { GameState, Player, createGameState, CardSchema, createCard } from "./GameState";
-import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, rearrangeMelds, calculateRoundScores, startNextRound, endMatch, autoPlayTurn } from "./game-engine";
+import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, calculateRoundScores, startNextRound, endMatch, autoPlayTurn } from "./game-engine";
 
 function twoPlayerState(): GameState {
   const state = createGameState();
@@ -626,73 +626,6 @@ describe("swapWild", () => {
   });
 });
 
-describe("rearrangeMelds", () => {
-  type CardRef = { source: string; index: number };
-
-  it("dissolves two 3-of-a-kind melds and reforms as two 4-of-a-kind with hand cards", () => {
-    const state = createGameState();
-    state.status = "playing";
-    state.phase = "main_phase";
-    state.currentPlayerIndex = 0;
-    state.wildRank = 1;
-
-    const p1 = new Player();
-    p1.sessionId = "s1";
-    p1.name = "Alice";
-    p1.hand = new ArraySchema<CardSchema>();
-    p1.board = new ArraySchema<CardSchema>();
-    state.players.push(p1);
-
-    addCardsToHand(p1, [
-      { rank: 5, suit: 0 },
-      { rank: 5, suit: 1 },
-      { rank: 5, suit: 2 },
-      { rank: 8, suit: 0 },
-      { rank: 8, suit: 1 },
-      { rank: 8, suit: 2 },
-    ]);
-    meldCards(state, "s1", [0, 1, 2]);
-    const meldAId = p1.board[0]!.meldGroupId;
-    meldCards(state, "s1", [0, 1, 2]); // next 3 cards (indices shifted after first meld)
-    const meldBId = p1.board[3]!.meldGroupId;
-    expect(p1.board.length).toBe(6);
-    expect(p1.hand.length).toBe(0);
-
-    addCardsToHand(p1, [
-      { rank: 5, suit: 3 },
-      { rank: 8, suit: 3 },
-    ]);
-
-    const newMelds: CardRef[][] = [
-      [
-        { source: meldAId, index: 0 },
-        { source: meldAId, index: 1 },
-        { source: meldAId, index: 2 },
-        { source: "hand", index: 0 },
-      ],
-      [
-        { source: meldBId, index: 0 },
-        { source: meldBId, index: 1 },
-        { source: meldBId, index: 2 },
-        { source: "hand", index: 1 },
-      ],
-    ];
-
-    rearrangeMelds(state, "s1", newMelds);
-
-    expect(p1.board.length).toBe(8);
-    expect(p1.hand.length).toBe(0);
-
-    const meldIds = new Set(p1.board.map((c) => c.meldGroupId));
-    expect(meldIds.size).toBe(2);
-    for (const meldId of meldIds) {
-      const cards = p1.board.filter((c) => c.meldGroupId === meldId);
-      expect(cards.length).toBe(4);
-      expect(canMeld(cards, state.wildRank)).toBe(true);
-    }
-  });
-});
-
 describe("going out via manipulation", () => {
   it("ends the round when player adds last hand cards to existing melds and discards", () => {
     const state = createGameState();
@@ -1038,33 +971,5 @@ describe("invalid manipulation rejection", () => {
     const meldGroupId = p1.board[0]!.meldGroupId;
 
     expect(() => swapWild(state, "s1", meldGroupId, 2, 0)).toThrow("Invalid manipulation");
-  });
-
-  it("rejects rearrangeMelds that creates invalid melds", () => {
-    const state = createGameState();
-    state.status = "playing";
-    state.phase = "main_phase";
-    state.currentPlayerIndex = 0;
-    state.wildRank = 1;
-
-    const p1 = new Player();
-    p1.sessionId = "s1";
-    p1.name = "Alice";
-    p1.hand = new ArraySchema<CardSchema>();
-    p1.board = new ArraySchema<CardSchema>();
-    addCardsToHand(p1, [
-      { rank: 5, suit: 0 },
-      { rank: 5, suit: 1 },
-      { rank: 5, suit: 2 },
-      { rank: 7, suit: 0 },
-    ]);
-    state.players.push(p1);
-
-    meldCards(state, "s1", [0, 1, 2]);
-    const meldGroupId = p1.board[0]!.meldGroupId;
-
-    expect(() => rearrangeMelds(state, "s1", [
-      [{ source: meldGroupId, index: 0 }, { source: "hand", index: 0 }],
-    ])).toThrow("Invalid manipulation");
   });
 });

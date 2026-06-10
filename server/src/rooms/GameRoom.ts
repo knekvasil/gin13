@@ -13,7 +13,6 @@ import {
   discardCard,
   addToMeld,
   swapWild,
-  rearrangeMelds,
   endRound,
   startNextRound,
   endMatch,
@@ -100,12 +99,6 @@ export class GameRoom extends Room<GameState> {
     this.onMessage("swap_wild", (client, msg: { meldGroupId: string; meldCardIndex: number; handCardIndex: number }) => {
       try {
         swapWild(this.state, client.sessionId, msg.meldGroupId, msg.meldCardIndex, msg.handCardIndex);
-      } catch {}
-    });
-
-    this.onMessage("rearrange_melds", (client, msg: { newMelds: { source: string; index: number }[][] }) => {
-      try {
-        rearrangeMelds(this.state, client.sessionId, msg.newMelds);
       } catch {}
     });
   }

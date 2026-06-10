@@ -23,7 +23,7 @@ The act of playing a meld from hand onto the table for the first time. A player 
 _Avoid_: Play, go down
 
 **Manipulate**:
-The act of adding cards to, swapping cards within, or re-arranging any meld on the table (regardless of who laid it down). Only allowed once a player has already laid down at least one meld of their own. A wild swapped out of a meld returns to the manipulator's hand.
+The act of adding a card from hand to an existing meld, or swapping a wild card out of a meld by replacing it with a card from hand. Only allowed once a player has already laid down at least one meld of their own. A wild freed by swapping returns to the manipulator's hand. Cards cannot be moved between melds — each meld can only grow or have its wild swapped.
 _Avoid_: Play on, piggyback
 
 **Meld**:
