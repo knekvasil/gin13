@@ -93,13 +93,17 @@ export class GameRoom extends Room<GameState> {
     this.onMessage("add_to_meld", (client, msg: { cardIndex: number; meldGroupId: string }) => {
       try {
         addToMeld(this.state, client.sessionId, msg.cardIndex, msg.meldGroupId);
-      } catch {}
+      } catch (e) {
+        client.send("meld_error", { message: (e as Error).message });
+      }
     });
 
     this.onMessage("swap_wild", (client, msg: { meldGroupId: string; meldCardIndex: number; handCardIndex: number }) => {
       try {
         swapWild(this.state, client.sessionId, msg.meldGroupId, msg.meldCardIndex, msg.handCardIndex);
-      } catch {}
+      } catch (e) {
+        client.send("meld_error", { message: (e as Error).message });
+      }
     });
   }
 

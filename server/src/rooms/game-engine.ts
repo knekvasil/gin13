@@ -341,6 +341,13 @@ export function addToMeld(
   const newCards = [...found.cards, card];
   if (!canMeld(newCards, state.wildRank)) {
     player.hand.push(card);
+    if (
+      !isValidStraightFlush(found.cards, state.wildRank) &&
+      isValidSet(found.cards, state.wildRank) &&
+      found.cards.length >= 4
+    ) {
+      throw new Error("Set is full (max 4 cards) — try swapping a wild card");
+    }
     throw new Error("Invalid manipulation");
   }
 
