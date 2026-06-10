@@ -37,12 +37,12 @@ git commit -m "Implements #$NUMBER - $TITLE"
 git push
 
 SHA=$(git rev-parse --short HEAD)
-FILES=$(git diff --stat HEAD~1..HEAD 2>/dev/null | sed '$d' || echo "  (new files)")
+AC=$(echo "$BODY" | sed -n '/^## Acceptance criteria/,/^## /p' | grep '^- \[' | sed 's/^- \[.\] /- /')
 
 gh issue edit "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent"
 gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented in $SHA.
 
-$FILES"
+$AC"
 
 echo "- [x] #$NUMBER - $TITLE" >> ralph/progress.md
 
