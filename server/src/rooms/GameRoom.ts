@@ -262,12 +262,20 @@ export class GameRoom extends Room<GameState> {
       players: Math.max(0, this.clients.length - 1),
     });
 
+    const timeoutMs = this.clients.length <= 1 ? 10_000 : RECONNECT_TIMEOUT_MS;
+
     const timeout = setTimeout(() => {
       this.disconnectTimeouts.delete(userId);
+
+      const idx = this.state.players.findIndex((p) => p.userId === userId);
+      if (idx !== -1) {
+        this.state.players.splice(idx, 1);
+      }
+
       if (this.state.players.length === 0) {
         this.disconnect().catch(() => {});
       }
-    }, RECONNECT_TIMEOUT_MS);
+    }, timeoutMs);
 
     this.disconnectTimeouts.set(userId, timeout);
   }
