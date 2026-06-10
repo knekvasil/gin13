@@ -72,7 +72,9 @@ export class GameRoom extends Room<GameState> {
     this.onMessage("meld", (client, msg: { cardIndices: number[] }) => {
       try {
         meldCards(this.state, client.sessionId, msg.cardIndices);
-      } catch {}
+      } catch (e) {
+        client.send("meld_error", { message: (e as Error).message });
+      }
     });
 
     this.onMessage("pass_meld", (client) => {

@@ -37,6 +37,8 @@ export default function GameRoomPage() {
   const [discardPile, setDiscardPile] = useState<CardData[]>([]);
   const [mySessionId, setMySessionId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
+  const [meldError, setMeldError] = useState<string | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -68,10 +70,15 @@ export default function GameRoomPage() {
         setCurrentPlayerIndex(state.currentPlayerIndex ?? 0);
         setWinnerSessionId(state.winnerSessionId || "");
         const list: PlayerState[] = [];
-        state.players?.forEach?.((p: PlayerState) => list.push(p));
-        setPlayers(list);
+      state.players?.forEach?.((p: PlayerState) => list.push(p));
+      setPlayers(list);
 
-        const dPile: CardData[] = [];
+      const myHand = list.find((p) => p.sessionId === mySessionId)?.hand;
+      if (myHand) {
+        setSelectedCardIndices((prev) => prev.filter((i) => i < myHand.length));
+      }
+
+      const dPile: CardData[] = [];
         state.drawPile?.forEach?.((c: CardData) => dPile.push(c));
         setDrawPile(dPile);
 
@@ -82,6 +89,10 @@ export default function GameRoomPage() {
 
       updatePlayers();
       joinedRoom.onStateChange(updatePlayers);
+
+      joinedRoom.onMessage("meld_error", (msg: { message: string }) => {
+        setMeldError(msg.message);
+      });
 
       cleanupRef.current = () => {
         joinedRoom.onStateChange.remove(updatePlayers);
@@ -115,6 +126,7 @@ export default function GameRoomPage() {
   const isMyTurn = currentPlayer?.sessionId === mySessionId;
   const canDraw = phase === "draw" && isMyTurn;
   const canDiscard = phase === "discard" && isMyTurn;
+  const canMeld = phase === "main_phase" && isMyTurn;
 
   const handleDrawFromDeck = () => {
     if (!canDraw) return;
@@ -129,6 +141,26 @@ export default function GameRoomPage() {
   const handleDiscard = (cardIndex: number) => {
     if (!canDiscard) return;
     room.send("discard", { cardIndex });
+  };
+
+  const handleToggleCard = (cardIndex: number) => {
+    if (!canMeld) return;
+    setSelectedCardIndices((prev) =>
+      prev.includes(cardIndex) ? prev.filter((i) => i !== cardIndex) : [...prev, cardIndex],
+    );
+    setMeldError(null);
+  };
+
+  const handleMeld = () => {
+    if (!canMeld || selectedCardIndices.length === 0) return;
+    room.send("meld", { cardIndices: selectedCardIndices });
+    setSelectedCardIndices([]);
+  };
+
+  const handlePassMeld = () => {
+    if (!canMeld) return;
+    room.send("pass_meld");
+    setSelectedCardIndices([]);
   };
 
   const wildRankNames = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -262,13 +294,23 @@ export default function GameRoomPage() {
                     rank={card.rank}
                     suit={card.suit}
                     wild={card.rank === wildRank}
-                    onClick={() => handleDiscard(i)}
-                    disabled={!canDiscard}
+                    selected={selectedCardIndices.includes(i)}
+                    onClick={canMeld ? () => handleToggleCard(i) : canDiscard ? () => handleDiscard(i) : undefined}
+                    disabled={!canMeld && !canDiscard}
                   />
                 ))}
             </div>
             {!players.find((p) => p.sessionId === mySessionId) && (
               <p style={{ fontSize: 12, color: "#888" }}>Waiting for game to start...</p>
+            )}
+            {canMeld && (
+              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={handleMeld} disabled={selectedCardIndices.length === 0}>
+                  Meld ({selectedCardIndices.length})
+                </button>
+                <button onClick={handlePassMeld}>Pass Meld</button>
+                {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
+              </div>
             )}
           </div>
         </div>

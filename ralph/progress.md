@@ -9,3 +9,4 @@
 - [x] #7 - Leaderboard + match history
 - [x] #8 - 8. Card component + game state sync
 - [x] #8 - 8. Card component + game state sync
+- [x] #9 - 9. Basic turn: draw + discard
