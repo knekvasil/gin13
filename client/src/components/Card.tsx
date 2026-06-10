@@ -4,16 +4,25 @@ interface CardProps {
   faceDown?: boolean;
   selected?: boolean;
   wild?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
 }
 
 const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
 const SUIT_COLORS = ["#000", "#d00", "#d00", "#000"];
 const RANK_NAMES = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-export default function Card({ rank, suit, faceDown, selected, wild }: CardProps) {
+export default function Card({ rank, suit, faceDown, selected, wild, onClick, disabled }: CardProps) {
+  const isClickable = !!onClick;
+  const handleClick = () => {
+    if (disabled) return;
+    onClick?.();
+  };
+
   if (faceDown) {
     return (
       <div
+        onClick={handleClick}
         style={{
           width: 56,
           height: 80,
@@ -23,8 +32,20 @@ export default function Card({ rank, suit, faceDown, selected, wild }: CardProps
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          cursor: "default",
+          cursor: isClickable ? "pointer" : "default",
+          opacity: disabled ? 0.5 : 1,
+          transition: "opacity 0.2s, box-shadow 0.2s",
           ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
+        }}
+        onMouseEnter={(e) => {
+          if (isClickable && !disabled) {
+            e.currentTarget.style.boxShadow = "0 0 0 3px #4a90d9";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (isClickable && !disabled) {
+            e.currentTarget.style.boxShadow = selected ? "0 0 0 3px #ff0" : "none";
+          }
         }}
       >
         <span style={{ color: "#fff", fontSize: 24 }}>?</span>
@@ -38,6 +59,7 @@ export default function Card({ rank, suit, faceDown, selected, wild }: CardProps
 
   return (
     <div
+      onClick={handleClick}
       style={{
         width: 56,
         height: 80,
@@ -48,9 +70,23 @@ export default function Card({ rank, suit, faceDown, selected, wild }: CardProps
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        cursor: "default",
+        cursor: isClickable ? "pointer" : "default",
+        opacity: disabled ? 0.5 : 1,
         position: "relative",
+        transition: "opacity 0.2s, box-shadow 0.2s, transform 0.15s",
         ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
+      }}
+      onMouseEnter={(e) => {
+        if (isClickable && !disabled) {
+          e.currentTarget.style.boxShadow = "0 0 0 3px #4a90d9";
+          e.currentTarget.style.transform = "translateY(-4px)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (isClickable && !disabled) {
+          e.currentTarget.style.boxShadow = selected ? "0 0 0 3px #ff0" : "none";
+          e.currentTarget.style.transform = "translateY(0)";
+        }
       }}
     >
       <span style={{ color, fontSize: 18, fontWeight: "bold", lineHeight: 1 }}>

@@ -8,3 +8,4 @@
 - [x] #6 - Round scoring + multi-round match
 - [x] #7 - Leaderboard + match history
 - [x] #8 - 8. Card component + game state sync
+- [x] #8 - 8. Card component + game state sync

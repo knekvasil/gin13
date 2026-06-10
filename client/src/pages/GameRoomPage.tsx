@@ -111,6 +111,26 @@ export default function GameRoomPage() {
     return <div>Joining room...</div>;
   }
 
+  const currentPlayer = players[currentPlayerIndex];
+  const isMyTurn = currentPlayer?.sessionId === mySessionId;
+  const canDraw = phase === "draw" && isMyTurn;
+  const canDiscard = phase === "discard" && isMyTurn;
+
+  const handleDrawFromDeck = () => {
+    if (!canDraw) return;
+    room.send("draw", { source: "deck" });
+  };
+
+  const handleDrawFromDiscard = () => {
+    if (!canDraw) return;
+    room.send("draw", { source: "discard" });
+  };
+
+  const handleDiscard = (cardIndex: number) => {
+    if (!canDiscard) return;
+    room.send("discard", { cardIndex });
+  };
+
   const wildRankNames = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   const wildName = wildRankNames[wildRank] || String(wildRank);
 
@@ -172,7 +192,7 @@ export default function GameRoomPage() {
           <div style={{ display: "flex", gap: 32, alignItems: "flex-start", marginBottom: 24 }}>
             <div style={{ textAlign: "center" }}>
               <p><strong>Draw Pile</strong></p>
-              <Card faceDown />
+              <Card faceDown onClick={handleDrawFromDeck} disabled={!canDraw} />
               <p style={{ fontSize: 12, marginTop: 4 }}>{drawPile.length} cards</p>
             </div>
 
@@ -185,6 +205,8 @@ export default function GameRoomPage() {
                     rank={discardPile[discardPile.length - 1].rank}
                     suit={discardPile[discardPile.length - 1].suit}
                     wild={discardPile[discardPile.length - 1].rank === wildRank}
+                    onClick={handleDrawFromDiscard}
+                    disabled={!canDraw}
                   />
                 )}
               </div>
@@ -229,7 +251,7 @@ export default function GameRoomPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 16 }}>
             <p><strong>Your Hand</strong></p>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {players
@@ -240,6 +262,8 @@ export default function GameRoomPage() {
                     rank={card.rank}
                     suit={card.suit}
                     wild={card.rank === wildRank}
+                    onClick={() => handleDiscard(i)}
+                    disabled={!canDiscard}
                   />
                 ))}
             </div>
