@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import GameRoomPage from "./GameRoomPage";
@@ -259,5 +259,259 @@ describe("GameRoomPage meld phase", () => {
     expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
 
     expect(mockRoom.state.phase).toBe("main_phase");
+  });
+
+  it("sends add_to_meld when clicking hand card then meld group", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const addBtn = screen.getByRole("button", { name: /add to meld/i });
+    await userEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/adding to meld/i)).toBeInTheDocument();
+    });
+
+    const cards = getHandCardElements();
+    await userEvent.click(cards[0]);
+
+    const meldGroup = screen.getByTestId("meld-group-meld-1");
+    await userEvent.click(meldGroup);
+
+    expect(mockRoomSend).toHaveBeenCalledWith("add_to_meld", {
+      cardIndex: 0,
+      meldGroupId: "meld-1",
+    });
+  });
+
+  it("sends swap_wild when clicking wild on board then hand card", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 13, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const meldGroup = screen.getByTestId("meld-group-meld-1");
+    const wildBadge = within(meldGroup).getByText("W");
+    await userEvent.click(wildBadge);
+
+    await waitFor(() => {
+      expect(screen.getByText(/swapping wild/i)).toBeInTheDocument();
+    });
+
+    const cards = getHandCardElements();
+    await userEvent.click(cards[0]);
+
+    expect(mockRoomSend).toHaveBeenCalledWith("swap_wild", {
+      meldGroupId: "meld-1",
+      meldCardIndex: 0,
+      handCardIndex: 0,
+    });
+  });
+
+  it("sends rearrange_melds when clicking rearrange then Done", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const rearrangeBtn = screen.getByRole("button", { name: /rearrange/i });
+    await userEvent.click(rearrangeBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/rearranging/i)).toBeInTheDocument();
+    });
+
+    const doneBtn = screen.getByRole("button", { name: /done/i });
+    await userEvent.click(doneBtn);
+
+    expect(mockRoomSend).toHaveBeenCalledWith("rearrange_melds", {
+      newMelds: [
+        [
+          { source: "meld-1", index: 0 },
+          { source: "meld-1", index: 1 },
+          { source: "meld-1", index: 2 },
+        ],
+      ],
+    });
+  });
+
+  it("updates board meld visually after add_to_meld state change", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const addBtn = screen.getByRole("button", { name: /add to meld/i });
+    await userEvent.click(addBtn);
+
+    const cards = getHandCardElements();
+    expect(cards.length).toBe(3);
+    await userEvent.click(cards[0]);
+
+    const meldGroup = screen.getByTestId("meld-group-meld-1");
+    await userEvent.click(meldGroup);
+
+    const player = mockRoom.state.players[0];
+    const addedCard = player.hand.splice(0, 1)[0];
+    addedCard.meldGroupId = "meld-1";
+    player.board.push(addedCard);
+    onStateChangeCallback();
+
+    await waitFor(() => {
+      const handCards = getHandCardElements();
+      expect(handCards.length).toBe(2);
+    });
+
+    const updatedGroup = screen.getByTestId("meld-group-meld-1");
+    const groupCards = updatedGroup.querySelectorAll('[style*="width: 56"]');
+    expect(groupCards.length).toBe(4);
+  });
+
+  it("updates board and hand visually after swap_wild state change", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 13, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const meldGroup = screen.getByTestId("meld-group-meld-1");
+    const wildBadge = within(meldGroup).getByText("W");
+    await userEvent.click(wildBadge);
+
+    await waitFor(() => {
+      expect(screen.getByText(/swapping wild/i)).toBeInTheDocument();
+    });
+
+    const handCards = getHandCardElements();
+    await userEvent.click(handCards[0]);
+
+    const player = mockRoom.state.players[0];
+    const wildCard = player.board.splice(0, 1)[0];
+    const usedHandCard = player.hand.splice(0, 1)[0];
+    usedHandCard.meldGroupId = "meld-1";
+    player.board.push(usedHandCard);
+    player.hand.push(wildCard);
+    wildCard.meldGroupId = "";
+    onStateChangeCallback();
+
+    await waitFor(() => {
+      const updatedHand = getHandCardElements();
+      expect(updatedHand.length).toBe(3);
+    });
+
+    expect(screen.getByText("K")).toBeInTheDocument();
+  });
+
+  it("click-to-move card between meld groups in rearrange mode", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 7, suit: 0, meldGroupId: "meld-2" },
+      { rank: 8, suit: 0, meldGroupId: "meld-2" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const rearrangeBtn = screen.getByRole("button", { name: /rearrange/i });
+    await userEvent.click(rearrangeBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/rearranging/i)).toBeInTheDocument();
+    });
+
+    const meldGroup2 = screen.getByTestId("meld-group-meld-2");
+    const group2Cards = meldGroup2.querySelectorAll('[style*="width: 56"]');
+    await userEvent.click(group2Cards[0]);
+
+    const meldGroup1 = screen.getByTestId("meld-group-meld-1");
+    await userEvent.click(meldGroup1);
+
+    const doneBtn = screen.getByRole("button", { name: /done/i });
+    await userEvent.click(doneBtn);
+
+    expect(mockRoomSend).toHaveBeenCalledWith("rearrange_melds", {
+      newMelds: [
+        [
+          { source: "meld-1", index: 0 },
+          { source: "meld-1", index: 1 },
+          { source: "meld-2", index: 0 },
+        ],
+        [
+          { source: "meld-2", index: 1 },
+        ],
+      ],
+    });
+  });
+
+  it("cancel button clears interaction mode", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const addBtn = screen.getByRole("button", { name: /add to meld/i });
+    await userEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/adding to meld/i)).toBeInTheDocument();
+    });
+
+    const cancelBtn = screen.getByRole("button", { name: /cancel/i });
+    await userEvent.click(cancelBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/adding to meld/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: /add to meld/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^meld/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
   });
 });

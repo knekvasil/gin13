@@ -5,6 +5,8 @@ import { createColyseusClient } from "../auth/colyseus";
 import type { Room } from "colyseus.js";
 import Card from "../components/Card";
 
+type InteractionMode = "none" | "adding" | "swapping" | "rearranging";
+
 interface CardData {
   rank: number;
   suit: number;
@@ -39,6 +41,11 @@ export default function GameRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const [meldError, setMeldError] = useState<string | null>(null);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>("none");
+  const [addCardIndex, setAddCardIndex] = useState<number | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{ meldGroupId: string; meldCardIndex: number } | null>(null);
+  const [rearrangeNewMelds, setRearrangeNewMelds] = useState<{ source: string; index: number }[][] | null>(null);
+  const [rearrangeSelected, setRearrangeSelected] = useState<{ source: string; index: number } | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -164,6 +171,124 @@ export default function GameRoomPage() {
     setSelectedCardIndices([]);
   };
 
+  const handleCancelMode = () => {
+    setInteractionMode("none");
+    setAddCardIndex(null);
+    setSwapTarget(null);
+    setRearrangeNewMelds(null);
+    setRearrangeSelected(null);
+    setMeldError(null);
+  };
+
+  const handleEnterAddMode = () => {
+    setInteractionMode("adding");
+    setAddCardIndex(null);
+    setSwapTarget(null);
+    setRearrangeNewMelds(null);
+    setMeldError(null);
+  };
+
+  const handleEnterRearrangeMode = () => {
+    const meldGroups = new Map<string, CardData[]>();
+    for (const card of myBoard) {
+      if (!card.meldGroupId) continue;
+      const group = meldGroups.get(card.meldGroupId);
+      if (group) group.push(card);
+      else meldGroups.set(card.meldGroupId, [card]);
+    }
+    const newMelds: { source: string; index: number }[][] = [];
+    for (const [groupId, group] of meldGroups) {
+      newMelds.push(group.map((_, idx) => ({ source: groupId, index: idx })));
+    }
+    setRearrangeNewMelds(newMelds);
+    setInteractionMode("rearranging");
+    setMeldError(null);
+  };
+
+  const handleDoneRearrange = () => {
+    if (!room || !rearrangeNewMelds) return;
+    room.send("rearrange_melds", { newMelds: rearrangeNewMelds });
+    setInteractionMode("none");
+    setRearrangeNewMelds(null);
+    setRearrangeSelected(null);
+    setMeldError(null);
+  };
+
+  const handleRearrangeCardClick = (source: string, index: number) => {
+    if (rearrangeSelected && rearrangeSelected.source === source && rearrangeSelected.index === index) {
+      setRearrangeSelected(null);
+      return;
+    }
+    setRearrangeSelected({ source, index });
+  };
+
+  const handleRearrangeMoveToGroup = (targetGroupIdx: number) => {
+    if (!rearrangeSelected || !rearrangeNewMelds) return;
+    const newMelds = rearrangeNewMelds.map((group) => [...group]);
+    let cardRef: { source: string; index: number } | null = null;
+    let sourceGroupIdx = -1;
+    for (let gi = 0; gi < newMelds.length; gi++) {
+      const foundIdx = newMelds[gi].findIndex(
+        (ref) => ref.source === rearrangeSelected.source && ref.index === rearrangeSelected.index,
+      );
+      if (foundIdx !== -1) {
+        cardRef = newMelds[gi][foundIdx];
+        newMelds[gi] = newMelds[gi].filter((_, i) => i !== foundIdx);
+        sourceGroupIdx = gi;
+        break;
+      }
+    }
+    if (!cardRef || sourceGroupIdx === -1) return;
+    const filtered = newMelds.filter((g) => g.length > 0);
+    const adjustedTarget = targetGroupIdx <= sourceGroupIdx ? targetGroupIdx : targetGroupIdx;
+    filtered[adjustedTarget] = [...filtered[adjustedTarget], cardRef];
+    setRearrangeNewMelds(filtered);
+    setRearrangeSelected(null);
+  };
+
+  const handleHandClick = (cardIndex: number) => {
+    if (interactionMode === "adding") {
+      setAddCardIndex(cardIndex);
+      return;
+    }
+    if (interactionMode === "swapping" && swapTarget && room) {
+      room.send("swap_wild", {
+        meldGroupId: swapTarget.meldGroupId,
+        meldCardIndex: swapTarget.meldCardIndex,
+        handCardIndex: cardIndex,
+      });
+      setInteractionMode("none");
+      setSwapTarget(null);
+      setMeldError(null);
+      return;
+    }
+    if (interactionMode === "none") {
+      setSelectedCardIndices((prev) =>
+        prev.includes(cardIndex) ? prev.filter((i) => i !== cardIndex) : [...prev, cardIndex],
+      );
+      setMeldError(null);
+    }
+  };
+
+  const handleAddToMeld = (meldGroupId: string) => {
+    if (addCardIndex === null || !room) return;
+    room.send("add_to_meld", { cardIndex: addCardIndex, meldGroupId });
+    setInteractionMode("none");
+    setAddCardIndex(null);
+    setMeldError(null);
+  };
+
+  const handleBoardCardClick = (card: CardData, ci: number) => {
+    if (interactionMode === "none" && card.rank === wildRank) {
+      setInteractionMode("swapping");
+      setSwapTarget({ meldGroupId: card.meldGroupId, meldCardIndex: ci });
+      setMeldError(null);
+    }
+  };
+
+  const myBoard = players.find((p) => p.sessionId === mySessionId)?.board ?? [];
+  const hasMelds = myBoard.length > 0;
+
   const wildRankNames = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   const wildName = wildRankNames[wildRank] || String(wildRank);
 
@@ -260,24 +385,68 @@ export default function GameRoomPage() {
                     if (group) group.push(card);
                     else meldGroups.set(card.meldGroupId, [card]);
                   }
+                  const isOwn = player.sessionId === mySessionId;
+                  const groupEntries = [...meldGroups.entries()];
                   return (
                     <div key={player.sessionId} style={{ marginBottom: 12 }}>
                       <p style={{ fontWeight: "bold", fontSize: 14 }}>{player.name}</p>
-                      {[...meldGroups.values()].map((group, gi) => (
-                        <div
-                          key={gi}
-                          style={{ display: "flex", gap: 4, marginBottom: 6 }}
-                        >
-                          {group.map((card, ci) => (
-                            <Card
-                              key={ci}
-                              rank={card.rank}
-                              suit={card.suit}
-                              wild={card.rank === wildRank}
-                            />
-                          ))}
-                        </div>
-                      ))}
+                      {groupEntries.map(([meldGroupId, group], gi) => {
+                        const isTarget = interactionMode === "rearranging" && !!rearrangeSelected;
+                        const isRearrangeDropTarget = isTarget && isOwn;
+                        return (
+                          <div
+                            key={meldGroupId}
+                            data-testid={`meld-group-${meldGroupId}`}
+                            onClick={
+                              interactionMode === "adding" && isOwn
+                                ? () => handleAddToMeld(meldGroupId)
+                                : interactionMode === "rearranging" && isOwn && rearrangeSelected
+                                  ? () => handleRearrangeMoveToGroup(gi)
+                                  : undefined
+                            }
+                            style={{
+                              display: "flex",
+                              gap: 4,
+                              marginBottom: 6,
+                              ...(interactionMode === "adding" && isOwn ? {
+                                outline: "2px dashed #4caf50",
+                                borderRadius: 6,
+                                padding: 4,
+                                cursor: "pointer",
+                                background: "#f0faf0",
+                              } : {}),
+                              ...(isRearrangeDropTarget ? {
+                                outline: "2px dashed #2196f3",
+                                borderRadius: 6,
+                                padding: 4,
+                                cursor: "pointer",
+                                background: "#e3f2fd",
+                              } : {}),
+                            }}
+                          >
+                            {group.map((card, ci) => {
+                              const isSelectedForSwap = interactionMode === "swapping" && swapTarget?.meldGroupId === meldGroupId && swapTarget?.meldCardIndex === ci;
+                              const isSelectedForRearrange = interactionMode === "rearranging" && rearrangeSelected?.source === meldGroupId && rearrangeSelected?.index === ci;
+                              return (
+                                <Card
+                                  key={ci}
+                                  rank={card.rank}
+                                  suit={card.suit}
+                                  wild={card.rank === wildRank}
+                                  onClick={
+                                    isOwn && canMeld && card.rank === wildRank && interactionMode === "none"
+                                      ? () => handleBoardCardClick(card, ci)
+                                      : isOwn && interactionMode === "rearranging"
+                                        ? () => handleRearrangeCardClick(meldGroupId, ci)
+                                        : undefined
+                                  }
+                                  selected={isSelectedForSwap || isSelectedForRearrange}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -289,28 +458,58 @@ export default function GameRoomPage() {
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {players
                 .find((p) => p.sessionId === mySessionId)
-                ?.hand.map((card, i) => (
-                  <Card
-                    key={i}
-                    rank={card.rank}
-                    suit={card.suit}
-                    wild={card.rank === wildRank}
-                    selected={selectedCardIndices.includes(i)}
-                    onClick={canMeld ? () => handleToggleCard(i) : canDiscard ? () => handleDiscard(i) : undefined}
-                    disabled={!canMeld && !canDiscard}
-                  />
-                ))}
+                ?.hand.map((card, i) => {
+                  const isSelectedForMeld = selectedCardIndices.includes(i);
+                  const isSelectedForAdd = interactionMode === "adding" && addCardIndex === i;
+                  return (
+                    <Card
+                      key={i}
+                      rank={card.rank}
+                      suit={card.suit}
+                      wild={card.rank === wildRank}
+                      selected={isSelectedForMeld || isSelectedForAdd}
+                      onClick={canMeld ? () => handleHandClick(i) : canDiscard ? () => handleDiscard(i) : undefined}
+                      disabled={!canMeld && !canDiscard}
+                    />
+                  );
+                })}
             </div>
             {!players.find((p) => p.sessionId === mySessionId) && (
               <p style={{ fontSize: 12, color: "#888" }}>Waiting for game to start...</p>
             )}
             {canMeld && (
-              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={handleMeld} disabled={selectedCardIndices.length === 0}>
-                  Meld ({selectedCardIndices.length})
-                </button>
-                <button onClick={handlePassMeld}>Pass Meld</button>
-                {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
+              <div style={{ marginTop: 8 }}>
+                {interactionMode !== "none" && (
+                  <p style={{ fontSize: 13, fontStyle: "italic", marginBottom: 4 }}>
+                    {interactionMode === "adding" && (addCardIndex === null
+                      ? "Adding to meld — select a card from your hand"
+                      : "Adding to meld — click a meld group")}
+                    {interactionMode === "swapping" && "Swapping wild — click a hand card to swap"}
+                    {interactionMode === "rearranging" && "Rearranging — click cards to move between meld groups"}
+                  </p>
+                )}
+                {interactionMode === "rearranging" ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button onClick={handleDoneRearrange}>Done</button>
+                    <button onClick={handleCancelMode}>Cancel</button>
+                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
+                  </div>
+                ) : interactionMode !== "none" ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button onClick={handleCancelMode}>Cancel</button>
+                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button onClick={handleMeld} disabled={selectedCardIndices.length === 0}>
+                      Meld ({selectedCardIndices.length})
+                    </button>
+                    <button onClick={handlePassMeld}>Pass Meld</button>
+                    {hasMelds && <button onClick={handleEnterAddMode}>Add to Meld</button>}
+                    {hasMelds && <button onClick={handleEnterRearrangeMode}>Rearrange</button>}
+                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
+                  </div>
+                )}
               </div>
             )}
           </div>
