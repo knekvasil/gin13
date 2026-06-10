@@ -17,7 +17,7 @@ cleanup() {
 trap cleanup EXIT
 
 for ((i=1; i<=$1; i++)); do
-  ISSUE=$(gh issue list --repo knekvasil/gin13 --label "ready-for-agent" --json number,title --jq '.[0]')
+  ISSUE=$(gh issue list --repo knekvasil/gin13 --label "ready-for-agent" --json number,title --jq 'sort_by(.number) | .[0]')
 
   if [ -z "$ISSUE" ] || [ "$ISSUE" = "null" ]; then
     echo "COMPLETE - no issues remaining after $i iterations."
