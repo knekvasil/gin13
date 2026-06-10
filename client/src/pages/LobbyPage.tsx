@@ -62,6 +62,7 @@ export default function LobbyPage() {
     try {
       const room = await c.create("game_room", { totalRounds: roundCount });
       navigate(`/game/${room.roomId}`);
+      room.leave();
     } catch (err) {
       console.error("create room failed", err);
       setCreating(false);
@@ -74,6 +75,7 @@ export default function LobbyPage() {
     try {
       const room = await c.joinOrCreate("game_room", {});
       navigate(`/game/${room.roomId}`);
+      room.leave();
     } catch (err) {
       console.error("quick play failed", err);
     }
@@ -86,6 +88,7 @@ export default function LobbyPage() {
       try {
         const room = await c.joinById(roomId);
         navigate(`/game/${room.roomId}`);
+        room.leave();
       } catch {
         refreshRooms();
       }
