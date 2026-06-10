@@ -70,8 +70,10 @@ Workflow rules:
   SUMMARY=$(git log --oneline -1 --stat HEAD 2>/dev/null || echo "New implementation")
 
   git commit -m "Implements #$NUMBER - $TITLE"
+  git push
 
-  gh issue close "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent" --comment "Implemented.
+  gh issue edit "$NUMBER" --repo knekvasil/gin13 --remove-label "ready-for-agent"
+  gh issue close "$NUMBER" --repo knekvasil/gin13 --comment "Implemented.
 
 $SUMMARY"
 
