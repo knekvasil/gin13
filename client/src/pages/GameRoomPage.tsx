@@ -56,7 +56,8 @@ export default function GameRoomPage() {
 
       joined = joinedRoom;
       setRoom(joinedRoom);
-      setMySessionId(joinedRoom.sessionId);
+      const sessionId = joinedRoom.sessionId;
+      setMySessionId(sessionId);
 
       const getState = () => joinedRoom.state as any;
 
@@ -73,7 +74,7 @@ export default function GameRoomPage() {
       state.players?.forEach?.((p: PlayerState) => list.push(p));
       setPlayers(list);
 
-      const myHand = list.find((p) => p.sessionId === mySessionId)?.hand;
+      const myHand = list.find((p) => p.sessionId === sessionId)?.hand;
       if (myHand) {
         setSelectedCardIndices((prev) => prev.filter((i) => i < myHand.length));
       }

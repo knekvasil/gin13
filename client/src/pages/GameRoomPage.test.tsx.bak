@@ -1,0 +1,133 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import GameRoomPage from "./GameRoomPage";
+
+const mockNavigate = vi.fn();
+const mockRoomSend = vi.fn();
+const mockRoomLeave = vi.fn();
+const mockOnStateChangeRemove = vi.fn();
+
+let mockRoom: any;
+let onStateChangeCallback: Function;
+let messageHandlers: Map<string, Function>;
+
+vi.mock("react-router-dom", () => ({
+  useParams: () => ({ roomId: "test-room" }),
+  useNavigate: () => mockNavigate,
+}));
+
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({ token: "test-token" }),
+}));
+
+const mockJoinById = vi.fn();
+vi.mock("../auth/colyseus", () => ({
+  createColyseusClient: () => ({
+    joinById: mockJoinById,
+  }),
+}));
+
+function getHandContainer(): HTMLElement | null {
+  const heading = screen.queryByText("Your Hand");
+  if (!heading) return null;
+  return heading.parentElement;
+}
+
+function getHandCards(): HTMLElement[] {
+  const container = getHandContainer();
+  if (!container) return [];
+  const flexContainer = container.querySelector('[style*="flex"]');
+  if (!flexContainer) return [];
+  return Array.from(flexContainer.querySelectorAll('[style*="width"], [style*="height"]'));
+}
+
+function getMeldButton(): HTMLElement | null {
+  return screen.queryByRole("button", { name: /meld/i });
+}
+
+function getPassMeldButton(): HTMLElement | null {
+  return screen.queryByRole("button", { name: /pass meld/i });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  onStateChangeCallback = vi.fn();
+  messageHandlers = new Map();
+
+  mockRoom = {
+    sessionId: "my-session",
+    state: {
+      status: "playing",
+      phase: "main_phase",
+      currentRound: 0,
+      wildRank: 13,
+      currentPlayerIndex: 0,
+      winnerSessionId: "",
+      players: [
+        {
+          sessionId: "my-session",
+          userId: "user1",
+          name: "Player 1",
+          score: 0,
+          disconnected: false,
+          hand: [
+            { rank: 1, suit: 0, meldGroupId: "" },
+            { rank: 2, suit: 0, meldGroupId: "" },
+            { rank: 3, suit: 0, meldGroupId: "" },
+          ],
+          board: [],
+        },
+        {
+          sessionId: "other-session",
+          userId: "user2",
+          name: "Player 2",
+          score: 0,
+          disconnected: false,
+          hand: [],
+          board: [],
+        },
+      ],
+      drawPile: [{ rank: 10, suit: 2, meldGroupId: "" }],
+      discardPile: [{ rank: 8, suit: 3, meldGroupId: "" }],
+    },
+    send: mockRoomSend,
+    onStateChange: Object.assign(
+      (cb: Function) => {
+        onStateChangeCallback = cb;
+      },
+      { remove: mockOnStateChangeRemove },
+    ),
+    onMessage: vi.fn((channel: string, cb: Function) => {
+      messageHandlers.set(channel, cb);
+    }),
+    leave: mockRoomLeave,
+    id: "test-room",
+  };
+
+  mockJoinById.mockResolvedValue(mockRoom);
+});
+
+describe("GameRoomPage meld phase", () => {
+  it("toggles card selection when clicking hand cards", async () => {
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    const cards = getHandCards();
+    expect(cards.length).toBeGreaterThanOrEqual(1);
+
+    const firstCard = cards[0];
+    const initialBorder = firstCard.style.border || "";
+
+    await userEvent.click(firstCard);
+
+    expect(firstCard.style.border).toContain("#ff0");
+
+    await userEvent.click(firstCard);
+
+    expect(firstCard.style.border).not.toContain("#ff0");
+  });
+});

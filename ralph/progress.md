@@ -10,3 +10,4 @@
 - [x] #8 - 8. Card component + game state sync
 - [x] #8 - 8. Card component + game state sync
 - [x] #9 - 9. Basic turn: draw + discard
+- [x] #10 - 10. Lay down melds + pass meld
