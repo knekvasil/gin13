@@ -72,12 +72,14 @@ export class GameRoom extends Room<GameState> {
     player.board = new ArraySchema<CardSchema>();
     this.state.players.push(player);
 
-    await prisma.matchPlayer.create({
-      data: {
-        matchId: this.roomId,
-        userId: client.auth.userId,
-      },
+    const existing = await prisma.matchPlayer.findUnique({
+      where: { matchId_userId: { matchId: this.roomId, userId: client.auth.userId } },
     });
+    if (!existing) {
+      await prisma.matchPlayer.create({
+        data: { matchId: this.roomId, userId: client.auth.userId },
+      });
+    }
 
     this.setMetadata({
       totalRounds: this.state.totalRounds,

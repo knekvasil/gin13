@@ -9,6 +9,7 @@ const JWT_SECRET = process.env["JWT_SECRET"] || "dev-secret-change-in-production
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockMatchPlayerCreate = vi.fn();
+const mockMatchPlayerFindUnique = vi.fn();
 
 vi.mock("../db", () => ({
   prisma: {
@@ -18,6 +19,7 @@ vi.mock("../db", () => ({
     },
     matchPlayer: {
       create: (...args: any[]) => mockMatchPlayerCreate(...args),
+      findUnique: (...args: any[]) => mockMatchPlayerFindUnique(...args),
     },
   },
 }));
@@ -52,6 +54,7 @@ describe("GameRoom integration", () => {
     mockCreate.mockResolvedValue({});
     mockUpdate.mockResolvedValue({});
     mockMatchPlayerCreate.mockResolvedValue({});
+    mockMatchPlayerFindUnique.mockResolvedValue(null);
   });
 
   function authedClient() {
