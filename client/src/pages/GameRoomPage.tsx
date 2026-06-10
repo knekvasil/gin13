@@ -58,10 +58,6 @@ export default function GameRoomPage() {
       if (!cancelled) setError(err.message || "Failed to join room");
     });
 
-    cleanupRef.current = () => {
-      joined?.leave();
-    };
-
     return () => {
       cancelled = true;
       cleanupRef.current();

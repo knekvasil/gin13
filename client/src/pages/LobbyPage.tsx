@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { createColyseusClient } from "../auth/colyseus";
@@ -17,60 +17,77 @@ export default function LobbyPage() {
   const [rooms, setRooms] = useState<RoomEntry[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [roundCount, setRoundCount] = useState(13);
-  const [client, setClient] = useState<Client | null>(null);
+  const clientRef = useRef<Client | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchRooms = useCallback(async (c?: Client) => {
-    const colyseus = c || client;
-    if (!colyseus) return;
+  useEffect(() => {
+    if (!token) return;
+
+    const c = createColyseusClient(token);
+    clientRef.current = c;
+
+    const fetchRooms = async () => {
+      try {
+        const available = await c.getAvailableRooms("game_room");
+        setRooms(available as RoomEntry[]);
+      } catch {
+        // server not ready yet
+      }
+    };
+
+    fetchRooms();
+    intervalRef.current = setInterval(fetchRooms, 3000);
+
+    return () => {
+      clearInterval(intervalRef.current!);
+    };
+  }, [token]);
+
+  const refreshRooms = useCallback(async () => {
+    const c = clientRef.current;
+    if (!c) return;
     try {
-      const available = await colyseus.getAvailableRooms("game_room");
+      const available = await c.getAvailableRooms("game_room");
       setRooms(available as RoomEntry[]);
     } catch {
       // server not ready yet
     }
-  }, [client]);
-
-  useEffect(() => {
-    if (!token) return;
-    const c = createColyseusClient(token);
-    setClient(c);
-
-    fetchRooms(c);
-    const interval = setInterval(() => fetchRooms(c), 3000);
-    return () => clearInterval(interval);
-  }, [token, fetchRooms]);
+  }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!client || !token) return;
+    const c = clientRef.current;
+    if (!c || !token) return;
     try {
-      const room = await client.create("game_room", { totalRounds: roundCount });
+      const room = await c.create("game_room", { totalRounds: roundCount });
       navigate(`/game/${room.roomId}`);
     } catch (err) {
       console.error("create room failed", err);
     }
-  }, [client, token, roundCount, navigate]);
+  }, [token, roundCount, navigate]);
 
   const handleQuickPlay = useCallback(async () => {
-    if (!client || !token) return;
+    const c = clientRef.current;
+    if (!c || !token) return;
     try {
-      const room = await client.joinOrCreate("game_room", {});
+      const room = await c.joinOrCreate("game_room", {});
       navigate(`/game/${room.roomId}`);
     } catch (err) {
       console.error("quick play failed", err);
     }
-  }, [client, token, navigate]);
+  }, [token, navigate]);
 
   const handleJoin = useCallback(
     async (roomId: string) => {
-      if (!client || !token) return;
+      const c = clientRef.current;
+      if (!c || !token) return;
       try {
-        const room = await client.joinById(roomId);
+        const room = await c.joinById(roomId);
         navigate(`/game/${room.roomId}`);
-      } catch (err) {
-        fetchRooms();
+      } catch {
+        refreshRooms();
       }
     },
-    [client, token, navigate, fetchRooms]
+    [token, navigate, refreshRooms],
   );
 
   return (
