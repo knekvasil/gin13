@@ -456,7 +456,7 @@ export default function GameRoomPage() {
                             key={meldGroupId}
                             data-testid={`meld-group-${meldGroupId}`}
                             onClick={
-                              interactionMode === "adding" && isOwn
+                              interactionMode === "adding"
                                 ? () => handleAddToMeld(meldGroupId)
                                 : interactionMode === "rearranging" && isOwn && rearrangeSelected
                                   ? () => handleRearrangeMoveToGroup(gi)
@@ -466,7 +466,7 @@ export default function GameRoomPage() {
                               display: "flex",
                               gap: 4,
                               marginBottom: 6,
-                              ...(interactionMode === "adding" && isOwn ? {
+                              ...(interactionMode === "adding" ? {
                                 outline: "2px dashed #4caf50",
                                 borderRadius: 6,
                                 padding: 4,
