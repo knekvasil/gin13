@@ -2,8 +2,17 @@ import http from "http";
 import { Room } from "colyseus";
 import { verifyToken } from "../auth";
 import { prisma } from "../db";
-import { Player, createGameState } from "./GameState";
+import { Player, createGameState, CardSchema } from "./GameState";
 import type { GameState } from "./GameState";
+import {
+  startGame,
+  drawFromDeck,
+  drawFromDiscard,
+  meldCards,
+  passMeld,
+  discardCard,
+} from "./game-engine";
+import { ArraySchema } from "@colyseus/schema";
 
 export class GameRoom extends Room<GameState> {
   static async onAuth(token: string, _req: http.IncomingMessage) {
@@ -27,6 +36,31 @@ export class GameRoom extends Room<GameState> {
     });
 
     this.setMetadata({ totalRounds, players: 0 });
+
+    this.onMessage("start_game", (_client) => {
+      if (this.state.players.length < 2) return;
+      startGame(this.state);
+    });
+
+    this.onMessage("draw", (client, msg: { source: "deck" | "discard" }) => {
+      if (msg.source === "discard") {
+        drawFromDiscard(this.state, client.sessionId);
+      } else {
+        drawFromDeck(this.state, client.sessionId);
+      }
+    });
+
+    this.onMessage("meld", (client, msg: { cardIndices: number[] }) => {
+      meldCards(this.state, client.sessionId, msg.cardIndices);
+    });
+
+    this.onMessage("pass_meld", (client) => {
+      passMeld(this.state, client.sessionId);
+    });
+
+    this.onMessage("discard", (client, msg: { cardIndex: number }) => {
+      discardCard(this.state, client.sessionId, msg.cardIndex);
+    });
   }
 
   async onJoin(client: any, _options: any) {
@@ -34,6 +68,8 @@ export class GameRoom extends Room<GameState> {
     player.sessionId = client.sessionId;
     player.userId = client.auth.userId;
     player.name = client.auth.name;
+    player.hand = new ArraySchema<CardSchema>();
+    player.board = new ArraySchema<CardSchema>();
     this.state.players.push(player);
 
     await prisma.matchPlayer.create({
@@ -51,7 +87,7 @@ export class GameRoom extends Room<GameState> {
 
   onLeave(client: any) {
     const idx = this.state.players.findIndex(
-      (p) => p.sessionId === client.sessionId
+      (p) => p.sessionId === client.sessionId,
     );
     if (idx !== -1) {
       this.state.players.splice(idx, 1);
