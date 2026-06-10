@@ -19,7 +19,14 @@ opencode run --dangerously-skip-permissions "Implement issue #$NUMBER - $TITLE
 
 $BODY
 
-Acceptance criteria must be met. Run tests and typecheck before finishing."
+Workflow rules:
+- Follow test-driven development: write ONE test (RED), then implement (GREEN), repeat.
+- Do NOT write all tests upfront. One test at a time.
+- Do NOT try to load any skills. Use the tools available to you directly.
+- Keep changes minimal — implement only what the current test requires.
+- Run feedback loops (tests, typecheck) after each change.
+- Do NOT commit — the script handles commits externally.
+- When all acceptance criteria are met, output DONE."
 
 echo "=== Feedback loops ==="
 npm run test || { echo "FAILURE: tests failed on issue #$NUMBER"; gh issue edit "$NUMBER" --repo knekvasil/gin13 --add-label "needs-info"; echo "- [FAIL] #$NUMBER - $TITLE (tests failing)" >> ralph/progress.md; exit 1; }
