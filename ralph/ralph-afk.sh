@@ -42,7 +42,8 @@ Workflow rules:
 - Do NOT write all tests upfront. One test at a time.
 - Do NOT try to load any skills. Use the tools available to you directly.
 - Keep changes minimal — implement only what the current test requires.
-- Run feedback loops (tests, typecheck) after each change.
+- Run `npm run typecheck` via the bash tool. It MUST pass with zero errors. Do NOT proceed if it fails.
+- Run `npm run test` via the bash tool. It MUST pass. Do NOT proceed if it fails.
 - Do NOT commit — the script handles commits externally.
 - When all acceptance criteria are met, output DONE." || {
     echo "FAILURE: opencode crashed on issue #$NUMBER"
