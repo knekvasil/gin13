@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { createColyseusClient } from "../auth/colyseus";
@@ -18,20 +18,28 @@ export default function GameRoomPage() {
   const [players, setPlayers] = useState<PlayerState[]>([]);
   const [status, setStatus] = useState("waiting");
   const [error, setError] = useState<string | null>(null);
+  const cleanupRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!token || !roomId) return;
 
     const client = createColyseusClient(token);
+    let cancelled = false;
     let joined: Room | null = null;
 
     client.joinById(roomId).then((joinedRoom) => {
+      if (cancelled) {
+        joinedRoom.leave();
+        return;
+      }
+
       joined = joinedRoom;
       setRoom(joinedRoom);
 
       const getState = () => joinedRoom.state as any;
 
       const updatePlayers = () => {
+        if (cancelled) return;
         const state = getState();
         setStatus(state.status || "waiting");
         const list: PlayerState[] = [];
@@ -40,17 +48,23 @@ export default function GameRoomPage() {
       };
 
       updatePlayers();
-      joinedRoom.onStateChange(() => updatePlayers());
+      joinedRoom.onStateChange(updatePlayers);
 
-      const state = getState();
-      state.players?.onAdd?.((_p: any, _i: number) => updatePlayers());
-      state.players?.onRemove?.(() => updatePlayers());
+      cleanupRef.current = () => {
+        joinedRoom.onStateChange.remove(updatePlayers);
+        joined?.leave();
+      };
     }).catch((err) => {
-      setError(err.message || "Failed to join room");
+      if (!cancelled) setError(err.message || "Failed to join room");
     });
 
-    return () => {
+    cleanupRef.current = () => {
       joined?.leave();
+    };
+
+    return () => {
+      cancelled = true;
+      cleanupRef.current();
     };
   }, [token, roomId]);
 
@@ -94,7 +108,7 @@ export default function GameRoomPage() {
         <button>Start Game</button>
       )}
 
-      <button onClick={() => { room?.leave(); navigate("/"); }}>Leave Room</button>
+      <button onClick={() => { cleanupRef.current(); navigate("/"); }}>Leave Room</button>
     </div>
   );
 }
