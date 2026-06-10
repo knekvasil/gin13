@@ -125,9 +125,31 @@ function getCurrentPlayer(state: GameState): Player {
   return state.players[state.currentPlayerIndex]!;
 }
 
+function reshuffleDiscardIntoDraw(state: GameState): void {
+  if (state.drawPile.length > 0) return;
+  if (state.discardPile.length <= 1) return;
+
+  const topCard = state.discardPile.pop()!;
+
+  const cards: Card[] = [];
+  for (const c of state.discardPile) {
+    cards.push({ rank: c.rank as Card["rank"], suit: c.suit as Card["suit"] });
+  }
+  state.discardPile = new ArraySchema<CardSchema>();
+
+  const shuffled = shuffleDeck(cards);
+  for (const c of shuffled) {
+    state.drawPile.push(createCard(c.rank, c.suit));
+  }
+
+  state.discardPile.push(topCard);
+}
+
 export function drawFromDeck(state: GameState, sessionId: string): void {
   assertPhase(state, "draw");
   assertCurrentPlayer(state, sessionId);
+
+  reshuffleDiscardIntoDraw(state);
 
   const card = state.drawPile.pop();
   if (!card) throw new Error("Draw pile is empty");

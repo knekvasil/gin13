@@ -52,6 +52,31 @@ describe("drawFromDeck", () => {
   });
 });
 
+describe("drawFromDeck reshuffle", () => {
+  it("reshuffles discard pile (minus top card) into draw pile when draw pile is empty", () => {
+    const state = twoPlayerState();
+    const p1 = state.players[0];
+
+    state.drawPile = new ArraySchema<CardSchema>();
+    state.discardPile = new ArraySchema<CardSchema>();
+    for (let i = 0; i < 10; i++) {
+      state.discardPile.push(createCard(5, 0));
+    }
+    const topCard = createCard(13, 3);
+    state.discardPile.push(topCard);
+
+    const discardBefore = state.discardPile.length;
+
+    drawFromDeck(state, "s1");
+
+    expect(state.drawPile.length).toBe(discardBefore - 2);
+    expect(state.discardPile.length).toBe(1);
+    expect(state.discardPile[0]).toBe(topCard);
+    expect(p1!.hand.length).toBe(8);
+    expect(state.phase).toBe("main_phase");
+  });
+});
+
 describe("drawFromDiscard", () => {
   it("draws from discard pile and advances to main_phase", () => {
     const state = twoPlayerState();

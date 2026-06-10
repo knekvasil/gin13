@@ -12,3 +12,5 @@
 - [x] #9 - 9. Basic turn: draw + discard
 - [x] #10 - 10. Lay down melds + pass meld
 - [x] #10 - 10. Lay down melds + pass meld
+- [x] #11 - 11. Manipulation: add, swap wild, rearrange
+- [FAIL] #12 - 12. Going out + round flow + turn timer (typecheck failing)

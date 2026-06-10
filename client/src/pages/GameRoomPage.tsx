@@ -47,6 +47,42 @@ export default function GameRoomPage() {
   const [rearrangeNewMelds, setRearrangeNewMelds] = useState<{ source: string; index: number }[][] | null>(null);
   const [rearrangeSelected, setRearrangeSelected] = useState<{ source: string; index: number } | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
+  const [timerPct, setTimerPct] = useState(100);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const startClientTimer = () => {
+    clearTimer();
+    setTimerPct(100);
+    const startTime = Date.now();
+    timerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.max(0, 100 - (elapsed / 60000) * 100);
+      setTimerPct(pct);
+      if (pct <= 0) {
+        clearTimer();
+      }
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => clearTimer();
+  }, []);
+
+  useEffect(() => {
+    if (status === "playing" && phase !== "waiting" && phase !== "round_ended" && phase !== "finished") {
+      startClientTimer();
+    } else {
+      clearTimer();
+      setTimerPct(100);
+    }
+  }, [status, phase, currentPlayerIndex, currentRound]);
 
   useEffect(() => {
     if (!token || !roomId) return;
@@ -292,6 +328,14 @@ export default function GameRoomPage() {
   const wildRankNames = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   const wildName = wildRankNames[wildRank] || String(wildRank);
 
+  const roundScores = players.map((p) => {
+    const roundScore = p.hand.reduce(
+      (sum, card) => sum + (card.rank === wildRank ? 25 : card.rank),
+      0,
+    );
+    return { ...p, roundScore };
+  });
+
   return (
     <div>
       <h1>Gin 13</h1>
@@ -309,8 +353,22 @@ export default function GameRoomPage() {
         </p>
       )}
 
+      {status === "playing" && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
+        <div>
+          {isMyTurn ? (
+            <div data-testid="turn-timer" style={{ width: "100%", height: 8, background: "#e0e0e0", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: `${timerPct}%`, height: "100%", background: timerPct > 30 ? "#4caf50" : timerPct > 10 ? "#ff9800" : "#f44336", transition: "width 0.1s linear" }} />
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: "#666" }}>
+              Waiting for {players[currentPlayerIndex]?.name ?? "..."}...
+            </p>
+          )}
+        </div>
+      )}
+
       {status === "waiting" && players.length >= 3 && (
-        <button>Start Game</button>
+        <button onClick={() => room.send("start_game")}>Start Game</button>
       )}
 
       <h2>Players ({players.length}/4)</h2>
@@ -513,6 +571,31 @@ export default function GameRoomPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {phase === "round_ended" && (
+        <div style={{ border: "2px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 16, background: "#fff3e0" }}>
+          <h2>Round {currentRound + 1} Summary</h2>
+          <p>Wild: {wildName}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Round Score</th>
+                <th>Total Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roundScores.map((p) => (
+                <tr key={p.sessionId}>
+                  <td>{p.name}</td>
+                  <td>{p.roundScore}</td>
+                  <td>{p.score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

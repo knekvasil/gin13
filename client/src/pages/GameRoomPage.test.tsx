@@ -515,3 +515,131 @@ describe("GameRoomPage meld phase", () => {
     expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
   });
 });
+
+describe("GameRoomPage waiting state", () => {
+  it("shows round summary overlay with round scores when phase is round_ended", async () => {
+    mockRoom.state.status = "playing";
+    mockRoom.state.phase = "round_ended";
+    mockRoom.state.currentRound = 2;
+    mockRoom.state.wildRank = 3;
+    mockRoom.state.players = [
+      { sessionId: "s1", userId: "u1", name: "Alice", score: 25, disconnected: false, hand: [], board: [] },
+      {
+        sessionId: "s2", userId: "u2", name: "Bob", score: 15, disconnected: false,
+        hand: [{ rank: 5, suit: 0, meldGroupId: "" }, { rank: 10, suit: 1, meldGroupId: "" }],
+        board: [],
+      },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Round 3 Summary")).toBeInTheDocument();
+    });
+
+    const roundSummary = screen.getByText("Round 3 Summary").closest("div")!;
+    expect(within(roundSummary).getByText("Wild: 3")).toBeInTheDocument();
+
+    expect(within(roundSummary).getByText("Alice")).toBeInTheDocument();
+    expect(within(roundSummary).getByText("Bob")).toBeInTheDocument();
+
+    expect(within(roundSummary).getByText("0")).toBeInTheDocument();
+    expect(within(roundSummary).getAllByText("15")).toHaveLength(2);
+  });
+
+  it("shows turn timer bar when it is your turn", async () => {
+    mockRoom.state.phase = "draw";
+    mockRoom.state.currentPlayerIndex = 0;
+    mockRoom.state.players = [
+      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [{ rank: 5, suit: 0, meldGroupId: "" }], board: [] },
+      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: false, hand: [], board: [] },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("turn-timer")).toBeInTheDocument();
+    });
+  });
+
+  it("shows waiting message when it is not your turn", async () => {
+    mockRoom.state.phase = "draw";
+    mockRoom.state.currentPlayerIndex = 1;
+    mockRoom.state.players = [
+      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [], board: [] },
+      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: false, hand: [{ rank: 5, suit: 0, meldGroupId: "" }], board: [] },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Waiting for Bob/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows disconnected badge for disconnected player", async () => {
+    mockRoom.state.status = "playing";
+    mockRoom.state.phase = "main_phase";
+    mockRoom.state.players = [
+      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [], board: [] },
+      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: true, hand: [], board: [] },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game Board")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Disconnected")).toBeInTheDocument();
+  });
+
+  it("shows match end screen with winner and sorted scores", async () => {
+    mockRoom.state.status = "finished";
+    mockRoom.state.phase = "finished";
+    mockRoom.state.winnerSessionId = "s2";
+    mockRoom.state.players = [
+      { sessionId: "s1", userId: "u1", name: "Alice", score: 30, disconnected: false, hand: [], board: [] },
+      { sessionId: "s2", userId: "u2", name: "Bob", score: 15, disconnected: false, hand: [], board: [] },
+      { sessionId: "s3", userId: "u3", name: "Charlie", score: 42, disconnected: false, hand: [], board: [] },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Match Over!")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Winner:.*Bob/)).toBeInTheDocument();
+
+    const scores = screen.getAllByRole("listitem");
+    expect(scores[0]).toHaveTextContent(/Bob/);
+    expect(scores[1]).toHaveTextContent(/Alice/);
+    expect(scores[2]).toHaveTextContent(/Charlie/);
+
+    expect(screen.getByRole("button", { name: /back to lobby/i })).toBeInTheDocument();
+  });
+
+  it("renders Start Game button when 3+ players and sends start_game on click", async () => {
+    mockRoom.state.status = "waiting";
+    mockRoom.state.phase = "waiting";
+    mockRoom.state.players = [
+      { sessionId: "s1", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [], board: [] },
+      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: false, hand: [], board: [] },
+      { sessionId: "s3", userId: "u3", name: "Charlie", score: 0, disconnected: false, hand: [], board: [] },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Room:/)).toBeInTheDocument();
+    });
+
+    const startBtn = screen.getByRole("button", { name: /start game/i });
+    expect(startBtn).toBeInTheDocument();
+
+    await userEvent.click(startBtn);
+
+    expect(mockRoomSend).toHaveBeenCalledWith("start_game");
+  });
+});
