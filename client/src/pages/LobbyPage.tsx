@@ -19,24 +19,26 @@ export default function LobbyPage() {
   const [roundCount, setRoundCount] = useState(13);
   const [client, setClient] = useState<Client | null>(null);
 
+  const fetchRooms = useCallback(async (c?: Client) => {
+    const colyseus = c || client;
+    if (!colyseus) return;
+    try {
+      const available = await colyseus.getAvailableRooms("game_room");
+      setRooms(available as RoomEntry[]);
+    } catch {
+      // server not ready yet
+    }
+  }, [client]);
+
   useEffect(() => {
     if (!token) return;
     const c = createColyseusClient(token);
     setClient(c);
 
-    const fetchRooms = async () => {
-      try {
-        const available = await c.getAvailableRooms("game_room");
-        setRooms(available as RoomEntry[]);
-      } catch {
-        // server not ready yet
-      }
-    };
-
-    fetchRooms();
-    const interval = setInterval(fetchRooms, 3000);
+    fetchRooms(c);
+    const interval = setInterval(() => fetchRooms(c), 3000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, fetchRooms]);
 
   const handleCreate = useCallback(async () => {
     if (!client || !token) return;
@@ -65,10 +67,10 @@ export default function LobbyPage() {
         const room = await client.joinById(roomId);
         navigate(`/game/${room.roomId}`);
       } catch (err) {
-        console.error("join room failed", err);
+        fetchRooms();
       }
     },
-    [client, token, navigate]
+    [client, token, navigate, fetchRooms]
   );
 
   return (
