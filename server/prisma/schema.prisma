@@ -7,10 +7,38 @@ datasource db {
   provider = "postgresql"
 }
 
+enum MatchStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+}
+
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String        @id @default(uuid())
+  email        String        @unique
   passwordHash String
   displayName  String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime      @default(now())
+  matchPlayers MatchPlayer[]
+}
+
+model Match {
+  id          String        @id @default(uuid())
+  status      MatchStatus   @default(WAITING)
+  totalRounds Int           @default(13)
+  createdAt   DateTime      @default(now())
+  endedAt     DateTime?
+  players     MatchPlayer[]
+}
+
+model MatchPlayer {
+  id        String  @id @default(uuid())
+  matchId   String
+  userId    String
+  score     Int     @default(0)
+  finalRank Int?
+  match     Match   @relation(fields: [matchId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
 }
