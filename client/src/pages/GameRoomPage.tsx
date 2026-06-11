@@ -301,7 +301,8 @@ export default function GameRoomPage() {
       }
     }
 
-    const handCard = players.flatMap((p) => p.hand)[addCardIndex];
+    const myPlayer = players.find((p) => p.sessionId === mySessionId);
+    const handCard = myPlayer?.hand[addCardIndex];
     if (!handCard) { setMeldError("Card not found"); return; }
 
     const hasWild = meldCards.some((c) => isWild(c, wildRank));
