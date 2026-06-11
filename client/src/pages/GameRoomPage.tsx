@@ -91,6 +91,7 @@ export default function GameRoomPage() {
   const [addCardIndex, setAddCardIndex] = useState<number | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ meldGroupId: string; meldCardIndex: number } | null>(null);
   const [meldChoice, setMeldChoice] = useState<{ cardIndex: number; meldGroupId: string } | null>(null);
+  const dragRef = useRef<{ cardIndex: number } | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
   const [timerPct, setTimerPct] = useState(100);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -213,6 +214,7 @@ export default function GameRoomPage() {
 
   const currentPlayer = players[currentPlayerIndex];
   const isMyTurn = currentPlayer?.sessionId === mySessionId;
+  const myPlayer = players.find((p) => p.sessionId === mySessionId);
   const canDraw = phase === "draw" && isMyTurn;
   const canDiscard = phase === "discard" && isMyTurn;
   const canMeld = phase === "main_phase" && isMyTurn;
@@ -332,6 +334,48 @@ export default function GameRoomPage() {
     setMeldError(null);
   };
 
+  const handleDragStart = (cardIndex: number) => (e: React.DragEvent) => {
+    dragRef.current = { cardIndex };
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDropOnBoard = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragRef.current || !room) return;
+    room.send("meld", { cardIndices: [dragRef.current.cardIndex] });
+    dragRef.current = null;
+  };
+
+  const handleDropOnMeld = (meldGroupId: string, meldCards: { rank: number; suit: number }[]) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragRef.current || !room) return;
+    const ci = dragRef.current.cardIndex;
+    const handCard = myPlayer?.hand[ci];
+    if (!handCard) { dragRef.current = null; return; }
+    const hasWild = meldCards.some((c) => isWild(c, wildRank));
+    const canAdd = canMeldCards([...meldCards, handCard], wildRank);
+    const canSwap = hasWild && canMeldCards(meldCards.filter((c) => !isWild(c, wildRank)).concat(handCard), wildRank);
+    if (canAdd && canSwap) {
+      setMeldChoice({ cardIndex: ci, meldGroupId });
+      dragRef.current = null;
+      return;
+    }
+    room.send("add_to_meld", { cardIndex: ci, meldGroupId, preferSwap: !canAdd && canSwap || false });
+    dragRef.current = null;
+  };
+
+  const handleDropOnDiscard = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragRef.current || !room) return;
+    room.send("discard", { cardIndex: dragRef.current.cardIndex });
+    dragRef.current = null;
+  };
+
   const handleBoardCardClick = (card: CardData, ci: number) => {
     if (interactionMode === "none" && card.rank === wildRank) {
       setInteractionMode("swapping");
@@ -430,7 +474,15 @@ export default function GameRoomPage() {
               <p style={{ fontSize: 12, marginTop: 4 }}>{drawPile.length} cards</p>
             </div>
 
-            <div style={{ textAlign: "center" }}>
+            <div
+              onDragOver={canDiscard ? handleDragOver : undefined}
+              onDrop={canDiscard ? handleDropOnDiscard : undefined}
+              style={{
+                textAlign: "center", padding: 8, borderRadius: 8,
+                border: canDiscard ? "2px dashed #94a3b8" : "none",
+                transition: "border 0.2s",
+              }}
+            >
               <p><strong>Discard Pile</strong></p>
               <div style={{ display: "flex", gap: 2 }}>
                 {discardPile.length > 1 && <Card faceDown />}
@@ -475,11 +527,14 @@ export default function GameRoomPage() {
                   return (
                     <div key={player.sessionId} style={{ marginBottom: 12 }}>
                       <p style={{ fontWeight: "bold", fontSize: 14 }}>{player.name}</p>
-                      {groupEntries.map(([meldGroupId, group], gi) => {
+                      {groupEntries.map(([meldGroupId, group]) => {
+                        const meldCards = group.map((c) => ({ rank: c.rank, suit: c.suit }));
                         return (
                           <div
                             key={meldGroupId}
                             data-testid={`meld-group-${meldGroupId}`}
+                            onDragOver={canMeld ? handleDragOver : undefined}
+                            onDrop={canMeld ? handleDropOnMeld(meldGroupId, meldCards) : undefined}
                             onClick={
                               interactionMode === "adding"
                                 ? () => handleAddToMeld(meldGroupId)
@@ -489,10 +544,10 @@ export default function GameRoomPage() {
                               display: "flex",
                               gap: 4,
                               marginBottom: 6,
+                              padding: 4,
+                              borderRadius: 8,
                               ...(interactionMode === "adding" ? {
                                 outline: "2px dashed #4caf50",
-                                borderRadius: 6,
-                                padding: 4,
                                 cursor: "pointer",
                                 background: "#f0faf0",
                               } : {}),
@@ -541,6 +596,8 @@ export default function GameRoomPage() {
                       selected={isSelectedForMeld || isSelectedForAdd}
                       onClick={canMeld ? () => handleHandClick(i) : canDiscard ? () => handleDiscard(i) : undefined}
                       disabled={!canMeld && !canDiscard}
+                      draggable={canMeld || canDiscard}
+                      onDragStart={canMeld || canDiscard ? handleDragStart(i) : undefined}
                     />
                   );
                 })}
