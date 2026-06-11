@@ -16,37 +16,56 @@ export default function MatchHistoryPage() {
   }
 
   return (
-    <div>
-      <h1>Match History</h1>
-      <button onClick={() => navigate("/")}>Back to Lobby</button>
+    <div className="min-h-screen px-4 py-8 max-w-lg mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold">Match History</h1>
+        <button
+          onClick={() => navigate("/")}
+          className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        >
+          Back
+        </button>
+      </div>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Loading...</p>
+      )}
 
-      {error && <p>Error loading match history</p>}
+      {error && (
+        <div className="rounded-xl border border-dashed border-red-300 dark:border-red-700 p-8 text-center">
+          <p className="text-sm text-red-600 dark:text-red-400">Error loading match history</p>
+        </div>
+      )}
 
-      {matches && matches.length === 0 && <p>No completed matches yet.</p>}
+      {matches && matches.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">No completed matches yet.</p>
+        </div>
+      )}
 
       {matches && matches.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Rank</th>
-              <th>Score</th>
-              <th>Rounds</th>
-            </tr>
-          </thead>
-          <tbody>
-            {matches.map((m) => (
-              <tr key={m.matchId}>
-                <td>{new Date(m.date).toLocaleDateString()}</td>
-                <td>{rankLabel(m.finalRank)}</td>
-                <td>{m.totalScore}</td>
-                <td>{m.totalRounds}</td>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Date</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Rank</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Score</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Rounds</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {matches.map((m) => (
+                <tr key={m.matchId} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <td className="px-4 py-3">{new Date(m.date).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">{rankLabel(m.finalRank)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{m.totalScore}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{m.totalRounds}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
