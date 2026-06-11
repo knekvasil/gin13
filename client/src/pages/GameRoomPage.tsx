@@ -185,6 +185,10 @@ export default function GameRoomPage() {
   const canMeld = phase === "main_phase" && isMyTurn;
   const canDrag = !!myPlayer?.hand.length;
 
+  const rankLabels = ["1st", "2nd", "3rd", "4th"];
+  const sortedByScore = [...players].sort((a, b) => a.score - b.score);
+  const playerRank = new Map(sortedByScore.map((p, i) => [p.sessionId, i]));
+
   const handleDrawFromDeck = () => { if (canDraw) room.send("draw", { source: "deck" }); };
   const handleDrawFromDiscard = () => { if (canDraw) room.send("draw", { source: "discard" }); };
   const handleDiscard = (cardIndex: number) => { if (canDiscard) room.send("discard", { cardIndex }); };
@@ -320,19 +324,22 @@ export default function GameRoomPage() {
             <tr className="bg-gray-50 dark:bg-gray-800">
               <th className="text-left px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Player</th>
               <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Score</th>
-              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Status</th>
+              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400 w-6">Rank</th>
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 4 }, (_, i) => {
-              const p = players[i]; const isWinner = status === "finished" && winnerSessionId && p?.sessionId === winnerSessionId;
+            {[...players].sort((a, b) => a.score - b.score).map((p) => {
+              const rank = playerRank.get(p.sessionId)! + 1;
+              const rankLabel = rankLabels[rank - 1] || `${rank}th`;
+              const isWinner = status === "finished" && winnerSessionId && p.sessionId === winnerSessionId;
+              const isMe = p.sessionId === mySessionId;
               return (
-                <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
-                  <td className={`px-2 py-1.5 ${isWinner ? "font-bold" : ""} ${p?.sessionId === mySessionId ? "text-blue-600 dark:text-blue-400" : ""}`}>
-                    {p?.name ?? <span className="text-gray-400 italic text-[11px]">Empty</span>}{isWinner && " 👑"}
+                <tr key={p.sessionId} className="border-t border-gray-100 dark:border-gray-800">
+                  <td className={`px-2 py-1.5 ${isWinner ? "font-bold" : ""} ${isMe ? "text-blue-600 dark:text-blue-400" : ""}`}>
+                    {p.name}{isWinner && " 👑"}
                   </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums">{p?.score ?? "—"}</td>
-                  <td className="px-2 py-1.5 text-center">{p?.disconnected ? <span className="text-red-500">✕</span> : p ? <span className="text-green-600 dark:text-green-400">●</span> : "—"}</td>
+                  <td className="px-2 py-1.5 text-center tabular-nums">{p.score}</td>
+                  <td className="px-2 py-1.5 text-center font-medium">{rankLabel}</td>
                 </tr>
               );
             })}
@@ -343,79 +350,56 @@ export default function GameRoomPage() {
       {/* Game board */}
       {status === "playing" && phase !== "waiting" && (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="relative">
-            {/* Opponents positioned around the table */}
+          <div className="relative min-h-[300px]">
+            {/* Opponents on side edges */}
             {(() => {
               const opps = players.filter((p) => p.sessionId !== mySessionId);
               const colors = ["bg-blue-500", "bg-purple-500", "bg-orange-500"];
               return opps.map((opponent, idx) => {
                 const color = colors[idx % colors.length]!;
                 const isActive = opponent.sessionId === currentPlayer?.sessionId;
+                const rank = playerRank.get(opponent.sessionId)! + 1;
+                const rankLabel = rankLabels[rank - 1] || `${rank}th`;
+
+                const isLeft = idx === 0;
+                const rot = isLeft ? "rotate-90" : "-rotate-90";
+                const counterRot = isLeft ? "-rotate-90" : "rotate-90";
+
+                // Build meld groups
                 const mg = new Map<string, CardData[]>();
                 for (const c of opponent.board) { if (!c.meldGroupId) continue; const g = mg.get(c.meldGroupId); if (g) g.push(c); else mg.set(c.meldGroupId, [c]); }
                 for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
 
-                if (idx === 0) {
-                  // Top opponent
-                  return (
-                    <div key={opponent.sessionId} className="flex flex-col items-center mb-3">
-                      <div className={`flex items-center gap-2 p-2 rounded-lg ${isActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300" : ""}`}>
-                        <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                          {opponent.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold leading-tight">{opponent.name}</p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">Score: {opponent.score}</p>
-                        </div>
-                        <div className={`w-2 h-2 rounded-full ${opponent.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+                return (
+                  <div key={opponent.sessionId}
+                    className={`absolute top-0 ${isLeft ? "left-0" : "right-0"} flex flex-col items-center gap-1`}
+                  >
+                    {/* Profile + rank */}
+                    <div className={`flex items-center gap-2 p-2 rounded-lg ${isActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300" : ""}`}>
+                      <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                        {opponent.name.charAt(0).toUpperCase()}
                       </div>
-                      {/* Face-down cards */}
-                      <div className="flex gap-0.5 mt-1">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold leading-tight">{opponent.name}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel}</p>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${opponent.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+                    </div>
+
+                    {/* Cards + melds container */}
+                    <div className={`flex flex-col items-center gap-1 ${rot}`}
+                      style={{ transformOrigin: "center center", marginTop: 40, marginBottom: 40 }}
+                    >
+                      {/* Face-down hand */}
+                      <div className="flex gap-0.5" style={{ flexDirection: "column" }}>
                         {opponent.hand.map((_, i) => <Card key={i} faceDown small />)}
                       </div>
                       {/* Melds */}
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {[...mg.entries()].map(([gid, group]) => (
-                          <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
-                            {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
-                          </DroppableMeldGroup>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Side opponents
-                const isRight = idx === 2;
-                return (
-                  <div key={opponent.sessionId}
-                    className={`absolute ${isRight ? "right-0 top-0" : "left-0 top-0"} flex flex-col items-center`}
-                    style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-                  >
-                    {/* Face-down cards (vertical stack for side players) */}
-                    <div className="flex gap-0.5" style={{ writingMode: "horizontal-tb", flexDirection: "column" }}>
-                      {opponent.hand.map((_, i) => <Card key={i} faceDown small />)}
-                    </div>
-                    {/* Melds */}
-                    <div className="flex flex-col gap-1 mt-1" style={{ writingMode: "horizontal-tb" }}>
                       {[...mg.entries()].map(([gid, group]) => (
                         <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
                           {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
                         </DroppableMeldGroup>
                       ))}
-                    </div>
-                    {/* Profile box (behind cards for side players) */}
-                    <div className={`flex items-center gap-2 p-2 rounded-lg mt-1 ${isActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300" : ""}`}
-                      style={{ writingMode: "horizontal-tb" }}
-                    >
-                      <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                        {opponent.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold leading-tight">{opponent.name}</p>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">Score: {opponent.score}</p>
-                      </div>
-                      <div className={`w-2 h-2 rounded-full ${opponent.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
                     </div>
                   </div>
                 );
@@ -441,6 +425,26 @@ export default function GameRoomPage() {
 
             {/* Your area */}
             <div className="flex flex-col items-center gap-2">
+              {/* Your profile */}
+              {(() => {
+                const me = players.find((p) => p.sessionId === mySessionId);
+                if (!me) return null;
+                const rank = playerRank.get(me.sessionId)! + 1;
+                const rankLabel = rankLabels[rank - 1] || `${rank}th`;
+                return (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300">
+                    <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {me.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-semibold leading-tight">{me.name}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel}</p>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${me.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+                  </div>
+                );
+              })()}
+
               {/* Your melds */}
               {myBoard.length > 0 && (
                 <div className="w-full">
