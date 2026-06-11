@@ -92,6 +92,7 @@ export default function GameRoomPage() {
   const [swapTarget, setSwapTarget] = useState<{ meldGroupId: string; meldCardIndex: number } | null>(null);
   const [meldChoice, setMeldChoice] = useState<{ cardIndex: number; meldGroupId: string } | null>(null);
   const dragRef = useRef<{ cardIndex: number } | null>(null);
+  const handOrderRef = useRef<number[]>([]);
   const cleanupRef = useRef<() => void>(() => {});
   const [timerPct, setTimerPct] = useState(100);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,6 +167,9 @@ export default function GameRoomPage() {
       const myHand = list.find((p) => p.sessionId === sessionId)?.hand;
       if (myHand) {
         setSelectedCardIndices((prev) => prev.filter((i) => i < myHand.length));
+        if (handOrderRef.current.length !== myHand.length) {
+          handOrderRef.current = myHand.map((_, i) => i);
+        }
       }
 
       const dPile: CardData[] = [];
@@ -376,6 +380,24 @@ export default function GameRoomPage() {
     dragRef.current = null;
   };
 
+  const handleDropOnHand = (dropIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragRef.current) return;
+    const fromIdx = handOrderRef.current.indexOf(dragRef.current.cardIndex);
+    if (fromIdx === -1) return;
+    const ordered = [...handOrderRef.current];
+    const [moved] = ordered.splice(fromIdx, 1);
+    const toIdx = fromIdx < dropIndex ? dropIndex - 1 : dropIndex;
+    ordered.splice(toIdx, 0, moved);
+    handOrderRef.current = ordered;
+    setPlayers((prev) => prev.map((p) =>
+      p.sessionId === mySessionId
+        ? { ...p, hand: ordered.map((i) => p.hand[i]!) }
+        : p,
+    ));
+    dragRef.current = null;
+  };
+
   const handleBoardCardClick = (card: CardData, ci: number) => {
     if (interactionMode === "none" && card.rank === wildRank) {
       setInteractionMode("swapping");
@@ -582,25 +604,37 @@ export default function GameRoomPage() {
             <div style={{ marginTop: 16 }}>
             <p><strong>Your Hand</strong></p>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {players
-                .find((p) => p.sessionId === mySessionId)
-                ?.hand.map((card, i) => {
-                  const isSelectedForMeld = selectedCardIndices.includes(i);
-                  const isSelectedForAdd = interactionMode === "adding" && addCardIndex === i;
+              {(() => {
+                const myPlayerHand = players.find((p) => p.sessionId === mySessionId)?.hand;
+                if (!myPlayerHand) return null;
+                if (handOrderRef.current.length !== myPlayerHand.length) {
+                  handOrderRef.current = myPlayerHand.map((_, i) => i);
+                }
+                return handOrderRef.current.map((origIdx, displayIdx) => {
+                  const card = myPlayerHand[origIdx];
+                  const isSelectedForMeld = selectedCardIndices.includes(origIdx);
+                  const isSelectedForAdd = interactionMode === "adding" && addCardIndex === origIdx;
                   return (
-                    <Card
-                      key={i}
-                      rank={card.rank}
-                      suit={card.suit}
-                      wild={card.rank === wildRank}
-                      selected={isSelectedForMeld || isSelectedForAdd}
-                      onClick={canMeld ? () => handleHandClick(i) : canDiscard ? () => handleDiscard(i) : undefined}
-                      disabled={!canMeld && !canDiscard}
-                      draggable={canMeld || canDiscard}
-                      onDragStart={canMeld || canDiscard ? handleDragStart(i) : undefined}
-                    />
+                    <div
+                      key={origIdx}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDropOnHand(displayIdx)}
+                      style={{ display: "inline-flex" }}
+                    >
+                      <Card
+                        rank={card.rank}
+                        suit={card.suit}
+                        wild={card.rank === wildRank}
+                        selected={isSelectedForMeld || isSelectedForAdd}
+                        onClick={canMeld ? () => handleHandClick(origIdx) : canDiscard ? () => handleDiscard(origIdx) : undefined}
+                        disabled={!canMeld && !canDiscard}
+                        draggable={canMeld || canDiscard}
+                        onDragStart={canMeld || canDiscard ? handleDragStart(origIdx) : undefined}
+                      />
+                    </div>
                   );
-                })}
+                });
+              })()}
             </div>
             {!players.find((p) => p.sessionId === mySessionId) && (
               <p style={{ fontSize: 12, color: "#888" }}>Waiting for game to start...</p>
