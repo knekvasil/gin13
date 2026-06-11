@@ -9,6 +9,7 @@ interface CardProps {
   disabled?: boolean;
   small?: boolean;
   draggable?: boolean;
+  count?: number;
 }
 
 const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
@@ -18,7 +19,7 @@ function isRed(suit: number): boolean {
   return suit === 1 || suit === 2;
 }
 
-export default function Card({ rank, suit, faceDown, selected, wild, onClick, onDragStart, disabled, small, draggable }: CardProps) {
+export default function Card({ rank, suit, faceDown, selected, wild, onClick, onDragStart, disabled, small, draggable, count }: CardProps) {
   const isClickable = !!onClick;
   const w = small ? 40 : 56;
   const h = small ? 60 : 80;
@@ -30,7 +31,7 @@ export default function Card({ rank, suit, faceDown, selected, wild, onClick, on
         onDragStart={onDragStart}
         onClick={onClick}
         className={`
-          inline-flex items-center justify-center rounded-lg select-none
+          inline-flex items-center justify-center rounded-lg select-none relative
           transition-all duration-150
           ${disabled ? "opacity-50" : ""}
           ${isClickable && !disabled ? "cursor-pointer hover:shadow-lg hover:-translate-y-1" : "cursor-default"}
@@ -41,6 +42,11 @@ export default function Card({ rank, suit, faceDown, selected, wild, onClick, on
         style={{ width: w, height: h }}
       >
         <span className="text-white text-xl font-bold">?</span>
+        {count !== undefined && (
+          <span className="absolute bottom-0.5 right-1 text-[10px] text-blue-300 dark:text-blue-400 font-medium leading-none">
+            {count}
+          </span>
+        )}
       </div>
     );
   }

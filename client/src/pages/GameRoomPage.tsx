@@ -295,57 +295,17 @@ export default function GameRoomPage() {
         )}
       </div>
 
-      {/* Status bar: round, wild, turn, timer */}
+      {/* Status bar: round, wild */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-gray-600 dark:text-gray-400">
         {status === "waiting" && <span>Room: {roomId}</span>}
         {status === "playing" && <span>Round <strong className="text-gray-900 dark:text-gray-100">{currentRound + 1}</strong></span>}
         {status === "playing" && <span>Wild: <strong className="text-gray-900 dark:text-gray-100">{wildName}</strong></span>}
-        {status === "playing" && phase !== "waiting" && (
-          <span className={isMyTurn ? "text-blue-600 dark:text-blue-400 font-medium" : ""}>
-            {isMyTurn ? "Your turn" : `${players[currentPlayerIndex]?.name ?? "..."}'s turn`}
-          </span>
-        )}
-        {isMyTurn && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
-          <div className="flex-1 max-w-[200px] h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-100 ${timerColor}`} style={{ width: `${timerPct}%` }} />
-          </div>
-        )}
       </div>
 
       {/* Start Game */}
       {status === "waiting" && players.length >= 3 && (
         <button onClick={() => room.send("start_game")} className="w-full mb-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition">Start Game</button>
       )}
-
-      {/* Score summary */}
-      <div className="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800">
-              <th className="text-left px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Player</th>
-              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Score</th>
-              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400 w-6">Rank</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...players].sort((a, b) => a.score - b.score).map((p) => {
-              const rank = playerRank.get(p.sessionId)! + 1;
-              const rankLabel = rankLabels[rank - 1] || `${rank}th`;
-              const isWinner = status === "finished" && winnerSessionId && p.sessionId === winnerSessionId;
-              const isMe = p.sessionId === mySessionId;
-              return (
-                <tr key={p.sessionId} className="border-t border-gray-100 dark:border-gray-800">
-                  <td className={`px-2 py-1.5 ${isWinner ? "font-bold" : ""} ${isMe ? "text-blue-600 dark:text-blue-400" : ""}`}>
-                    {p.name}{isWinner && " 👑"}
-                  </td>
-                  <td className="px-2 py-1.5 text-center tabular-nums">{p.score}</td>
-                  <td className="px-2 py-1.5 text-center font-medium">{rankLabel}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
 
       {/* Game board */}
       {status === "playing" && phase !== "waiting" && (
@@ -371,27 +331,15 @@ export default function GameRoomPage() {
                 for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
 
                 return (
-                  <div key={opponent.sessionId}
-                    className={`absolute top-0 ${isLeft ? "left-0" : "right-0"} flex flex-col items-center gap-1`}
+                    <div key={opponent.sessionId}
+                    className={`absolute top-0 ${isLeft ? "left-0" : "right-0"} flex ${isLeft ? "flex-row-reverse" : "flex-row"} items-start gap-2`}
                   >
-                    {/* Profile + rank */}
-                    <div className={`flex items-center gap-2 p-2 rounded-lg ${isActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300" : ""}`}>
-                      <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                        {opponent.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xs font-semibold leading-tight">{opponent.name}</p>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel}</p>
-                      </div>
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${opponent.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
-                    </div>
-
-                    {/* Cards + melds container */}
-                    <div className={`flex flex-col items-center gap-1 ${rot}`}
+                    {/* Cards + melds container — use flex-row so cards stack vertically after 90° rotation */}
+                    <div className={`flex flex-row items-center gap-1 ${rot}`}
                       style={{ transformOrigin: "center center", marginTop: 40, marginBottom: 40 }}
                     >
-                      {/* Face-down hand */}
-                      <div className="flex gap-0.5" style={{ flexDirection: "column" }}>
+                      {/* Face-down hand — row becomes column after outer rotation */}
+                      <div className="flex gap-0.5" style={{ flexDirection: "row" }}>
                         {opponent.hand.map((_, i) => <Card key={i} faceDown small />)}
                       </div>
                       {/* Melds */}
@@ -400,6 +348,25 @@ export default function GameRoomPage() {
                           {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
                         </DroppableMeldGroup>
                       ))}
+                    </div>
+
+                    {/* Profile + rank — behind the cards, closer to the edge */}
+                    <div className={`flex flex-col gap-1.5 p-2 rounded-lg border ${isActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300 border-blue-300 dark:border-blue-600" : "border-gray-200 dark:border-gray-700"}`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                          {opponent.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-semibold leading-tight">{opponent.name}</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel} — {opponent.score}</p>
+                        </div>
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${opponent.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+                      </div>
+                      {isActive && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
+                        <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-100 ${timerColor}`} style={{ width: `${timerPct}%` }} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -410,8 +377,7 @@ export default function GameRoomPage() {
             <div className="flex justify-center gap-8 mb-3 min-h-[120px] items-center">
               <div className="text-center">
                 <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Draw</p>
-                <Card faceDown onClick={handleDrawFromDeck} disabled={!canDraw} />
-                <p className="text-[10px] text-gray-400 mt-0.5">{drawPile.length}</p>
+                <Card faceDown onClick={handleDrawFromDeck} disabled={!canDraw} count={drawPile.length} />
               </div>
               <DroppableDiscard id="discard" canDrop={canDiscard}>
                 <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Discard</p>
@@ -425,26 +391,6 @@ export default function GameRoomPage() {
 
             {/* Your area */}
             <div className="flex flex-col items-center gap-2">
-              {/* Your profile */}
-              {(() => {
-                const me = players.find((p) => p.sessionId === mySessionId);
-                if (!me) return null;
-                const rank = playerRank.get(me.sessionId)! + 1;
-                const rankLabel = rankLabels[rank - 1] || `${rank}th`;
-                return (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300">
-                    <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {me.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs font-semibold leading-tight">{me.name}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel}</p>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${me.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
-                  </div>
-                );
-              })()}
-
               {/* Your melds */}
               {myBoard.length > 0 && (
                 <div className="w-full">
@@ -488,6 +434,34 @@ export default function GameRoomPage() {
                       ))}
                     </div>
                   </SortableContext>
+                );
+              })()}
+
+              {/* Your profile */}
+              {(() => {
+                const me = players.find((p) => p.sessionId === mySessionId);
+                if (!me) return null;
+                const rank = playerRank.get(me.sessionId)! + 1;
+                const rankLabel = rankLabels[rank - 1] || `${rank}th`;
+                const myActive = isMyTurn && phase !== "waiting" && phase !== "round_ended" && phase !== "finished";
+                return (
+                  <div className={`flex flex-col gap-1.5 p-2 rounded-lg border ${myActive ? "bg-blue-50 dark:bg-blue-950 ring-1 ring-blue-300 border-blue-300 dark:border-blue-600" : "border-gray-200 dark:border-gray-700"}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {me.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-semibold leading-tight">{me.name}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{rankLabel} — {me.score}</p>
+                      </div>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${me.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+                    </div>
+                    {myActive && (
+                      <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-100 ${timerColor}`} style={{ width: `${timerPct}%` }} />
+                      </div>
+                    )}
+                  </div>
                 );
               })()}
             </div>
