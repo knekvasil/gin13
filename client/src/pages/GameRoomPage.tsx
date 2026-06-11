@@ -619,31 +619,17 @@ export default function GameRoomPage() {
             )}
 
             {canMeld && !meldChoice && (
-              <div style={{ marginTop: 8 }}>
-                {interactionMode !== "none" && (
-                  <p style={{ fontSize: 13, fontStyle: "italic", marginBottom: 4 }}>
-                    {interactionMode === "adding" && (addCardIndex === null
-                      ? "Adding to meld — select a card from your hand"
-                      : "Adding to meld — click a meld group")}
-                    {interactionMode === "swapping" && "Swapping wild — click a hand card to swap"}
-                  </p>
-                )}
-                {interactionMode !== "none" ? (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button onClick={handleCancelMode}>Cancel</button>
-                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <button onClick={handleMeld} disabled={selectedCardIndices.length === 0}>
-                      Meld ({selectedCardIndices.length})
-                    </button>
-                    <button onClick={handlePassMeld}>Pass Meld</button>
-                    {hasMelds && <button onClick={handleEnterAddMode}>Add to Meld</button>}
-                    {meldError && <span style={{ color: "red", fontSize: 13 }}>{meldError}</span>}
-                  </div>
-                )}
+              <div className="text-sm text-gray-500 dark:text-gray-400 italic mt-2">
+                Drag cards to the board to meld, drag to a meld group to add
               </div>
+            )}
+            {canDiscard && (
+              <div className="text-sm text-gray-500 dark:text-gray-400 italic mt-2">
+                Drag a card to the discard pile
+              </div>
+            )}
+            {meldError && (
+              <div className="text-sm text-red-500 dark:text-red-400 mt-2">{meldError}</div>
             )}
           </div>
         </div>
