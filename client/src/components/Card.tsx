@@ -5,111 +5,76 @@ interface CardProps {
   selected?: boolean;
   wild?: boolean;
   onClick?: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
   disabled?: boolean;
+  small?: boolean;
+  draggable?: boolean;
 }
 
 const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
-const SUIT_COLORS = ["#000", "#d00", "#d00", "#000"];
 const RANK_NAMES = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-export default function Card({ rank, suit, faceDown, selected, wild, onClick, disabled }: CardProps) {
+function isRed(suit: number): boolean {
+  return suit === 1 || suit === 2;
+}
+
+export default function Card({ rank, suit, faceDown, selected, wild, onClick, onDragStart, disabled, small, draggable }: CardProps) {
   const isClickable = !!onClick;
-  const handleClick = () => {
-    if (disabled) return;
-    onClick?.();
-  };
+  const w = small ? 40 : 56;
+  const h = small ? 60 : 80;
 
   if (faceDown) {
     return (
       <div
-        onClick={handleClick}
-        style={{
-          width: 56,
-          height: 80,
-          border: "2px solid #333",
-          borderRadius: 6,
-          background: "repeating-linear-gradient(45deg, #1a3a8a, #1a3a8a 6px, #2244aa 6px, #2244aa 12px)",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: isClickable ? "pointer" : "default",
-          opacity: disabled ? 0.5 : 1,
-          transition: "opacity 0.2s, box-shadow 0.2s",
-          ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
-        }}
-        onMouseEnter={(e) => {
-          if (isClickable && !disabled) {
-            e.currentTarget.style.boxShadow = "0 0 0 3px #4a90d9";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (isClickable && !disabled) {
-            e.currentTarget.style.boxShadow = selected ? "0 0 0 3px #ff0" : "none";
-          }
-        }}
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onClick={onClick}
+        className={`
+          inline-flex items-center justify-center rounded-lg select-none
+          transition-all duration-150
+          ${disabled ? "opacity-50" : ""}
+          ${isClickable && !disabled ? "cursor-pointer hover:shadow-lg hover:-translate-y-1" : "cursor-default"}
+          ${selected ? "ring-3 ring-yellow-400" : ""}
+          bg-gradient-to-br from-blue-700 to-blue-900
+          dark:from-blue-800 dark:to-blue-950
+        `}
+        style={{ width: w, height: h }}
       >
-        <span style={{ color: "#fff", fontSize: 24 }}>?</span>
+        <span className="text-white text-xl font-bold">?</span>
       </div>
     );
   }
 
   const suitSymbol = suit !== undefined ? SUIT_SYMBOLS[suit] ?? "?" : "?";
-  const color = suit !== undefined ? SUIT_COLORS[suit] ?? "#000" : "#000";
   const rankName = rank !== undefined ? RANK_NAMES[rank] ?? "?" : "?";
+  const red = suit !== undefined && isRed(suit);
 
   return (
     <div
-      onClick={handleClick}
-      style={{
-        width: 56,
-        height: 80,
-        border: `2px solid ${selected ? "#ff0" : "#999"}`,
-        borderRadius: 6,
-        background: wild ? "#ffe" : "#fff",
-        display: "inline-flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: isClickable ? "pointer" : "default",
-        opacity: disabled ? 0.5 : 1,
-        position: "relative",
-        transition: "opacity 0.2s, box-shadow 0.2s, transform 0.15s",
-        ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
-      }}
-      onMouseEnter={(e) => {
-        if (isClickable && !disabled) {
-          e.currentTarget.style.boxShadow = "0 0 0 3px #4a90d9";
-          e.currentTarget.style.transform = "translateY(-4px)";
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onClick={onClick}
+      className={`
+        inline-flex flex-col items-center justify-center rounded-lg select-none relative
+        transition-all duration-150
+        ${disabled ? "opacity-50" : ""}
+        ${isClickable && !disabled ? "cursor-pointer hover:shadow-lg hover:-translate-y-1" : "cursor-default"}
+        ${selected ? "ring-3 ring-yellow-400" : "shadow-sm"}
+        ${wild
+          ? "bg-amber-50 dark:bg-amber-950 border-2 border-amber-400"
+          : "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
         }
-      }}
-      onMouseLeave={(e) => {
-        if (isClickable && !disabled) {
-          e.currentTarget.style.boxShadow = selected ? "0 0 0 3px #ff0" : "none";
-          e.currentTarget.style.transform = "translateY(0)";
-        }
-      }}
+      `}
+      style={{ width: w, height: h }}
     >
-      <span style={{ color, fontSize: 18, fontWeight: "bold", lineHeight: 1 }}>
+      <span className={`text-lg font-bold leading-none ${red ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}`}>
         {rankName}
       </span>
-      <span style={{ color, fontSize: 22, lineHeight: 1 }}>
+      <span className={`text-xl leading-none mt-0.5 ${red ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}`}>
         {suitSymbol}
       </span>
       {wild && (
-        <span
-          style={{
-            position: "absolute",
-            top: -6,
-            right: -6,
-            background: "#f80",
-            color: "#fff",
-            borderRadius: 8,
-            fontSize: 10,
-            padding: "1px 5px",
-            fontWeight: "bold",
-            lineHeight: "16px",
-          }}
-        >
+        <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
           W
         </span>
       )}
