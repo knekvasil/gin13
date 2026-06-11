@@ -283,58 +283,57 @@ export default function GameRoomPage() {
   const handIds = handOrder.map((i) => `hand-${i}`);
 
   return (
-    <div className="min-h-screen px-4 py-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Gin 13</h1>
+    <div className="min-h-screen px-4 py-6 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-lg font-bold">Gin 13</h1>
         {!status.startsWith("finished") && (
           <button onClick={() => { cleanupRef.current(); navigate("/"); }} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition">Leave</button>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-4 text-sm text-gray-600 dark:text-gray-400">
+      {/* Status bar: round, wild, turn, timer */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-gray-600 dark:text-gray-400">
         {status === "waiting" && <span>Room: {roomId}</span>}
-        {status === "playing" && <span className="font-medium text-gray-900 dark:text-gray-100">Round {currentRound + 1}</span>}
+        {status === "playing" && <span>Round <strong className="text-gray-900 dark:text-gray-100">{currentRound + 1}</strong></span>}
         {status === "playing" && <span>Wild: <strong className="text-gray-900 dark:text-gray-100">{wildName}</strong></span>}
-        {status === "playing" && phase !== "waiting" && <span>Turn: <strong className={isMyTurn ? "text-blue-600 dark:text-blue-400" : ""}>{players[currentPlayerIndex]?.name ?? "—"}</strong></span>}
+        {status === "playing" && phase !== "waiting" && (
+          <span className={isMyTurn ? "text-blue-600 dark:text-blue-400 font-medium" : ""}>
+            {isMyTurn ? "Your turn" : `${players[currentPlayerIndex]?.name ?? "..."}'s turn`}
+          </span>
+        )}
+        {isMyTurn && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
+          <div className="flex-1 max-w-[200px] h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-100 ${timerColor}`} style={{ width: `${timerPct}%` }} />
+          </div>
+        )}
       </div>
 
-      {status === "playing" && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
-        <div className="mb-4">
-          {isMyTurn ? (
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-100 ${timerColor}`} style={{ width: `${timerPct}%` }} />
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500 dark:text-gray-400 italic">Waiting for {players[currentPlayerIndex]?.name ?? "..."}...</p>
-          )}
-        </div>
-      )}
-
+      {/* Start Game */}
       {status === "waiting" && players.length >= 3 && (
-        <button onClick={() => room.send("start_game")} className="w-full mb-4 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition">Start Game</button>
+        <button onClick={() => room.send("start_game")} className="w-full mb-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition">Start Game</button>
       )}
 
-      <div className="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <table className="w-full text-sm">
+      {/* Score summary */}
+      <div className="mb-3 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
+        <table className="w-full">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400 w-8">#</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Name</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Score</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Status</th>
+            <tr className="bg-gray-50 dark:bg-gray-800">
+              <th className="text-left px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Player</th>
+              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Score</th>
+              <th className="text-center px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Status</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 4 }, (_, i) => {
               const p = players[i]; const isWinner = status === "finished" && winnerSessionId && p?.sessionId === winnerSessionId;
               return (
-                <tr key={i} className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                  <td className="px-3 py-2.5 tabular-nums">{i + 1}</td>
-                  <td className={`px-3 py-2.5 ${isWinner ? "font-bold" : ""}`}>
-                    {p ? p.name : <span className="text-gray-400 italic">Waiting...</span>}{isWinner && <span className="ml-1">👑</span>}
+                <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                  <td className={`px-2 py-1.5 ${isWinner ? "font-bold" : ""} ${p?.sessionId === mySessionId ? "text-blue-600 dark:text-blue-400" : ""}`}>
+                    {p?.name ?? <span className="text-gray-400 italic text-[11px]">Empty</span>}{isWinner && " 👑"}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{p?.score ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-right text-xs">{p?.disconnected ? <span className="text-red-500">Disconnected</span> : p ? <span className="text-green-600 dark:text-green-400">Connected</span> : "—"}</td>
+                  <td className="px-2 py-1.5 text-center tabular-nums">{p?.score ?? "—"}</td>
+                  <td className="px-2 py-1.5 text-center">{p?.disconnected ? <span className="text-red-500">✕</span> : p ? <span className="text-green-600 dark:text-green-400">●</span> : "—"}</td>
                 </tr>
               );
             })}
@@ -342,92 +341,117 @@ export default function GameRoomPage() {
         </table>
       </div>
 
+      {/* Game board */}
       {status === "playing" && phase !== "waiting" && (
-        <div className="mb-6">
-          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            {/* Draw & Discard */}
-            <div className="flex gap-8 items-start mb-6">
+        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="relative">
+            {/* Opponent area */}
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {players.filter((p) => p.sessionId !== mySessionId).map((opponent) => {
+                const mg = new Map<string, CardData[]>();
+                for (const c of opponent.board) { if (!c.meldGroupId) continue; const g = mg.get(c.meldGroupId); if (g) g.push(c); else mg.set(c.meldGroupId, [c]); }
+                for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
+                const isActive = opponent.sessionId === currentPlayer?.sessionId;
+                return (
+                  <div key={opponent.sessionId} className={`rounded-lg border p-2 ${isActive ? "border-blue-400 dark:border-blue-500 ring-1 ring-blue-300" : "border-gray-200 dark:border-gray-700"}`}>
+                    <p className={`text-xs font-semibold mb-1 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`}>{opponent.name}</p>
+                    <div className="flex gap-1 mb-1">
+                      {Array.from({ length: opponent.hand.length }, (_, i) => <Card key={i} faceDown small />)}
+                    </div>
+                    {[...mg.entries()].map(([gid, group]) => (
+                      <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canGameAction}>
+                        {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} small />)}
+                      </DroppableMeldGroup>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Center: deck + discard */}
+            <div className="flex justify-center gap-8 mb-3">
               <div className="text-center">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Draw Pile</p>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Draw</p>
                 <Card faceDown onClick={handleDrawFromDeck} disabled={!canDraw} />
-                <p className="text-xs text-gray-400 mt-1">{drawPile.length} cards</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{drawPile.length}</p>
               </div>
-              <DroppableDiscard id="discard" canDrop={canDiscard}>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Discard Pile</p>
-                <div className="flex gap-1 justify-center">
-                  {discardPile.length > 1 && <Card faceDown small />}
-                  {discardPile.length > 0 && <Card rank={discardPile[discardPile.length - 1].rank} suit={discardPile[discardPile.length - 1].suit} wild={discardPile[discardPile.length - 1].rank === wildRank} onClick={handleDrawFromDiscard} disabled={!canDraw} />}
-                </div>
+              <DroppableDiscard id="discard" canDrop={canGameAction}>
+                <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Discard</p>
+                {discardPile.length > 0 ? (
+                  <Card rank={discardPile[discardPile.length - 1].rank} suit={discardPile[discardPile.length - 1].suit} wild={discardPile[discardPile.length - 1].rank === wildRank} onClick={handleDrawFromDiscard} disabled={!canDraw} />
+                ) : (
+                  <div className="w-10 h-14 rounded-lg border border-dashed border-gray-300 dark:border-gray-600" />
+                )}
               </DroppableDiscard>
             </div>
 
-            {/* Melds */}
-            <div className="mb-4">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Melds</p>
-              <DroppableBoard id="board" canDrop={canMeld}>
-                {players.filter((p) => p.board.length > 0).length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">{canMeld ? "Drag cards here to meld" : "No melds yet"}</p>
-                )}
-                {players.filter((p) => p.board.length > 0).map((player) => {
-                  const meldGroups = new Map<string, CardData[]>();
-                  for (const card of player.board) { if (!card.meldGroupId) continue; const g = meldGroups.get(card.meldGroupId); if (g) g.push(card); else meldGroups.set(card.meldGroupId, [card]); }
-                  for (const [, group] of meldGroups) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
-                  const isOwn = player.sessionId === mySessionId;
-                  return (
-                    <div key={player.sessionId} className="mb-3 last:mb-0">
-                      <p className={`text-xs font-semibold mb-1 ${isOwn ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"}`}>{player.name}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[...meldGroups.entries()].map(([meldGroupId, group]) => (
-                          <DroppableMeldGroup key={meldGroupId} id={`meld-group-${meldGroupId}`} canDrop={canMeld} onClick={interactionMode === "adding" ? () => handleAddToMeld(meldGroupId) : undefined}>
-                            {group.map((card, ci) => (
-                              <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank}
-                                onClick={isOwn && canMeld && card.rank === wildRank && interactionMode === "none" ? () => handleBoardCardClick(card, ci) : undefined}
-                                selected={interactionMode === "swapping" && swapTarget?.meldGroupId === meldGroupId && swapTarget?.meldCardIndex === ci}
-                              />
-                            ))}
-                          </DroppableMeldGroup>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Your melds */}
+            {myBoard.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Your Melds</p>
+                <DroppableBoard id="board" canDrop={canGameAction}>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const mg = new Map<string, CardData[]>();
+                      for (const c of myBoard) { if (!c.meldGroupId) continue; const g = mg.get(c.meldGroupId); if (g) g.push(c); else mg.set(c.meldGroupId, [c]); }
+                      for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
+                      return [...mg.entries()].map(([gid, group]) => (
+                        <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canGameAction}>
+                          {group.map((card, ci) => (
+                            <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank}
+                              onClick={canMeld && card.rank === wildRank && interactionMode === "none" ? () => handleBoardCardClick(card, ci) : undefined}
+                              selected={interactionMode === "swapping" && swapTarget?.meldGroupId === gid && swapTarget?.meldCardIndex === ci}
+                            />
+                          ))}
+                        </DroppableMeldGroup>
+                      ));
+                    })()}
+                  </div>
+                </DroppableBoard>
+              </div>
+            )}
+            {myBoard.length === 0 && (
+              <DroppableBoard id="board" canDrop={canGameAction}>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">{canMeld ? "Drag cards here to meld" : "No melds yet"}</p>
               </DroppableBoard>
-            </div>
+            )}
 
-            {/* Hand */}
-            <div className="mb-4">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Your Hand</p>
+            {/* Your hand */}
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Your Hand</p>
               {(() => {
-                const myPlayerHand = players.find((p) => p.sessionId === mySessionId)?.hand;
-                if (!myPlayerHand) return <p className="text-xs text-gray-400 italic">Waiting for game to start...</p>;
-                if (handOrder.length !== myPlayerHand.length) setHandOrder(myPlayerHand.map((_, i) => i));
+                const hp = players.find((p) => p.sessionId === mySessionId)?.hand;
+                if (!hp) return <p className="text-xs text-gray-400 italic">Waiting...</p>;
+                if (handOrder.length !== hp.length) setHandOrder(hp.map((_, i) => i));
                 return (
-                  <SortableContext items={handIds} strategy={rectSortingStrategy}>
+                  <SortableContext items={handOrder.map((i) => `hand-${i}`)} strategy={rectSortingStrategy}>
                     <div className="flex flex-wrap gap-1.5">
                       {handOrder.map((origIdx) => (
-                        <SortableCard key={origIdx} card={myPlayerHand[origIdx]!} origIdx={origIdx} wildRank={wildRank} canDrag={canDrag} onContextMenu={() => handleHandClick(origIdx)} />
+                        <SortableCard key={origIdx} card={hp[origIdx]!} origIdx={origIdx} wildRank={wildRank} canDrag={canDrag} onContextMenu={() => handleHandClick(origIdx)} />
                       ))}
                     </div>
                   </SortableContext>
                 );
               })()}
             </div>
+          </div>
 
-            <DragOverlay>
-              {activeDragCard ? <DragCard rank={activeDragCard.rank} suit={activeDragCard.suit} wild={activeDragCard.rank === wildRank} /> : null}
-            </DragOverlay>
-          </DndContext>
-        </div>
+          <DragOverlay>
+            {activeDragCard ? <DragCard rank={activeDragCard.rank} suit={activeDragCard.suit} wild={activeDragCard.rank === wildRank} /> : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
-      {canMeld && !meldChoice && <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">Drag cards to the board to meld, drag to a meld group to add</p>}
+      {/* Instructions & errors */}
+      {canMeld && !meldChoice && <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">Drag cards to the board or meld groups</p>}
       {canDiscard && <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">Drag a card to the discard pile</p>}
       {meldError && <p className="text-xs text-red-500 dark:text-red-400 mb-2">{meldError}</p>}
 
+      {/* Add/Swap dialog */}
       {meldChoice && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm mx-4 shadow-xl">
-            <p className="text-sm mb-4 text-center">Add this card to the meld or swap it with the wild card?</p>
+            <p className="text-sm mb-4 text-center">Add this card or swap the wild?</p>
             <div className="flex gap-3 justify-center">
               <button onClick={() => handleMeldChoice(false)} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition">Add</button>
               <button onClick={() => handleMeldChoice(true)} className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition">Swap Wild</button>
@@ -437,27 +461,29 @@ export default function GameRoomPage() {
         </div>
       )}
 
+      {/* Round summary */}
       {phase === "round_ended" && (
-        <div className="rounded-xl border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950 p-4 mb-6">
-          <h2 className="text-sm font-bold mb-2">Round {currentRound + 1} Summary — Wild: {wildName}</h2>
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950 p-3 mb-6">
+          <h2 className="text-xs font-bold mb-2">Round {currentRound + 1} — Wild: {wildName}</h2>
+          <table className="w-full text-xs">
             <thead><tr className="border-b border-orange-200 dark:border-orange-800"><th className="text-left px-2 py-1 font-medium text-orange-700 dark:text-orange-300">Player</th><th className="text-right px-2 py-1 font-medium text-orange-700 dark:text-orange-300">Round</th><th className="text-right px-2 py-1 font-medium text-orange-700 dark:text-orange-300">Total</th></tr></thead>
-            <tbody>{roundScores.map((p) => (<tr key={p.sessionId} className="border-b border-orange-200 dark:border-orange-800 last:border-0"><td className="px-2 py-1.5">{p.name}</td><td className="px-2 py-1.5 text-right tabular-nums">{p.roundScore}</td><td className="px-2 py-1.5 text-right tabular-nums">{p.score}</td></tr>))}</tbody>
+            <tbody>{roundScores.map((p) => (<tr key={p.sessionId} className="border-b border-orange-200 dark:border-orange-800 last:border-0"><td className="px-2 py-1">{p.name}</td><td className="px-2 py-1 text-right tabular-nums">{p.roundScore}</td><td className="px-2 py-1 text-right tabular-nums">{p.score}</td></tr>))}</tbody>
           </table>
         </div>
       )}
 
+      {/* Match over */}
       {status === "finished" && winnerSessionId && (
         <div className="text-center mb-6">
-          <h2 className="text-lg font-bold mb-1">Match Over!</h2>
-          <p className="text-sm mb-4">Winner: <strong>{players.find((p) => p.sessionId === winnerSessionId)?.name ?? "Unknown"}</strong> 🎉</p>
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
-            <table className="w-full text-sm">
-              <thead><tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">#</th><th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Player</th><th className="text-right px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Score</th></tr></thead>
-              <tbody>{[...players].sort((a, b) => a.score - b.score).map((p, i) => (<tr key={p.sessionId} className="border-b border-gray-100 dark:border-gray-800 last:border-0"><td className="px-3 py-2 tabular-nums">{i + 1}</td><td className={`px-3 py-2 ${i === 0 ? "font-bold" : ""}`}>{p.name}</td><td className="px-3 py-2 text-right tabular-nums">{p.score}</td></tr>))}</tbody>
+          <h2 className="text-base font-bold mb-1">Match Over!</h2>
+          <p className="text-xs mb-3">Winner: <strong>{players.find((p) => p.sessionId === winnerSessionId)?.name ?? "Unknown"}</strong> 🎉</p>
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-3 text-xs">
+            <table className="w-full">
+              <thead><tr className="bg-gray-50 dark:bg-gray-800"><th className="text-left px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">#</th><th className="text-left px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Player</th><th className="text-right px-2 py-1.5 font-medium text-gray-500 dark:text-gray-400">Score</th></tr></thead>
+              <tbody>{[...players].sort((a, b) => a.score - b.score).map((p, i) => (<tr key={p.sessionId} className="border-t border-gray-100 dark:border-gray-800"><td className="px-2 py-1.5 tabular-nums">{i + 1}</td><td className={`px-2 py-1.5 ${i === 0 ? "font-bold" : ""}`}>{p.name}</td><td className="px-2 py-1.5 text-right tabular-nums">{p.score}</td></tr>))}</tbody>
             </table>
           </div>
-          <button onClick={() => { cleanupRef.current(); navigate("/"); }} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition">Back to Lobby</button>
+          <button onClick={() => { cleanupRef.current(); navigate("/"); }} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition">Back to Lobby</button>
         </div>
       )}
     </div>
