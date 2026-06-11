@@ -359,7 +359,7 @@ export function addToMeld(
     return;
   }
 
-  if (canSwap && (!canAdd || preferSwap)) {
+  if (canSwap && (preferSwap === true || !canAdd)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     found.owner.board.push(card);
@@ -370,7 +370,7 @@ export function addToMeld(
     return;
   }
 
-  if (canAdd && !canSwap) {
+  if (canAdd && (preferSwap === false || !canSwap)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     found.owner.board.push(card);
