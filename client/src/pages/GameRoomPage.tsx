@@ -5,6 +5,52 @@ import { createColyseusClient } from "../auth/colyseus";
 import type { Room } from "colyseus.js";
 import Card from "../components/Card";
 
+function isWild(card: { rank: number }, wildRank: number): boolean {
+  return card.rank === wildRank;
+}
+
+function canMeldCards(cards: { rank: number; suit: number }[], wildRank: number): boolean {
+  if (cards.length < 3) return false;
+  return isValidSet(cards, wildRank) || isValidStraightFlush(cards, wildRank);
+}
+
+function isValidSet(cards: { rank: number; suit: number }[], wildRank: number): boolean {
+  if (cards.length > 4 || cards.length < 3) return false;
+  if (cards.every((c) => isWild(c, wildRank))) return true;
+  let setRank: number | null = null;
+  const suits = new Set<number>();
+  for (const c of cards) {
+    if (isWild(c, wildRank)) continue;
+    if (setRank === null) setRank = c.rank;
+    else if (c.rank !== setRank) return false;
+    if (suits.has(c.suit)) return false;
+    suits.add(c.suit);
+  }
+  if (setRank === null) return false;
+  const wildCount = cards.filter((c) => isWild(c, wildRank)).length;
+  return suits.size === cards.length - wildCount;
+}
+
+function isValidStraightFlush(cards: { rank: number; suit: number }[], wildRank: number): boolean {
+  if (cards.length < 4) return false;
+  let suit: number | null = null;
+  const nonWild: number[] = [];
+  let wildCount = 0;
+  for (const c of cards) {
+    if (isWild(c, wildRank)) { wildCount++; continue; }
+    if (suit === null) suit = c.suit;
+    else if (c.suit !== suit) return false;
+    nonWild.push(c.rank);
+  }
+  if (suit === null) return false;
+  const unique = new Set(nonWild);
+  if (unique.size !== nonWild.length) return false;
+  nonWild.sort((a, b) => a - b);
+  const min = nonWild[0]!, max = nonWild[nonWild.length - 1]!;
+  if (max - min >= 12) return false;
+  return max - min + 1 - nonWild.length <= wildCount;
+}
+
 type InteractionMode = "none" | "adding" | "swapping";
 
 interface CardData {
@@ -44,6 +90,7 @@ export default function GameRoomPage() {
   const [interactionMode, setInteractionMode] = useState<InteractionMode>("none");
   const [addCardIndex, setAddCardIndex] = useState<number | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ meldGroupId: string; meldCardIndex: number } | null>(null);
+  const [meldChoice, setMeldChoice] = useState<{ cardIndex: number; meldGroupId: string } | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
   const [timerPct, setTimerPct] = useState(100);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -209,6 +256,7 @@ export default function GameRoomPage() {
     setInteractionMode("none");
     setAddCardIndex(null);
     setSwapTarget(null);
+    setMeldChoice(null);
     setMeldError(null);
   };
 
@@ -245,7 +293,39 @@ export default function GameRoomPage() {
 
   const handleAddToMeld = (meldGroupId: string) => {
     if (addCardIndex === null || !room) return;
-    room.send("add_to_meld", { cardIndex: addCardIndex, meldGroupId });
+
+    const meldCards: { rank: number; suit: number }[] = [];
+    for (const p of players) {
+      for (const c of p.board) {
+        if (c.meldGroupId === meldGroupId) meldCards.push(c);
+      }
+    }
+
+    const handCard = players.flatMap((p) => p.hand)[addCardIndex];
+    if (!handCard) { setMeldError("Card not found"); return; }
+
+    const hasWild = meldCards.some((c) => isWild(c, wildRank));
+    const canAdd = canMeldCards([...meldCards, handCard], wildRank);
+    const canSwapWild = hasWild && canMeldCards(
+      meldCards.filter((c) => !isWild(c, wildRank)).concat(handCard),
+      wildRank,
+    );
+
+    if (canAdd && canSwapWild) {
+      setMeldChoice({ cardIndex: addCardIndex, meldGroupId });
+      return;
+    }
+
+    room.send("add_to_meld", { cardIndex: addCardIndex, meldGroupId, preferSwap: !canAdd && canSwapWild || false });
+    setInteractionMode("none");
+    setAddCardIndex(null);
+    setMeldError(null);
+  };
+
+  const handleMeldChoice = (preferSwap: boolean) => {
+    if (!meldChoice || !room) return;
+    room.send("add_to_meld", { cardIndex: meldChoice.cardIndex, meldGroupId: meldChoice.meldGroupId, preferSwap });
+    setMeldChoice(null);
     setInteractionMode("none");
     setAddCardIndex(null);
     setMeldError(null);
@@ -380,6 +460,15 @@ export default function GameRoomPage() {
                     if (group) group.push(card);
                     else meldGroups.set(card.meldGroupId, [card]);
                   }
+                  for (const [, group] of meldGroups) {
+                    const nonWild = group.filter((c) => !isWild(c, wildRank));
+                    const wilds = group.filter((c) => isWild(c, wildRank));
+                    if (nonWild.length >= 2 && new Set(nonWild.map((c) => c.rank)).size > 1) {
+                      group.sort((a, b) => a.rank - b.rank);
+                    } else {
+                      group.length = 0; group.push(...nonWild, ...wilds);
+                    }
+                  }
                   const isOwn = player.sessionId === mySessionId;
                   const groupEntries = [...meldGroups.entries()];
                   return (
@@ -458,7 +547,20 @@ export default function GameRoomPage() {
             {!players.find((p) => p.sessionId === mySessionId) && (
               <p style={{ fontSize: 12, color: "#888" }}>Waiting for game to start...</p>
             )}
-            {canMeld && (
+            {meldChoice && (
+              <div style={{ marginTop: 8, padding: 8, border: "1px solid #ccc", borderRadius: 6, background: "#fffbe6" }}>
+                <p style={{ fontSize: 13, marginBottom: 4 }}>
+                  You can add this card to the meld or swap it with the wild card:
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => handleMeldChoice(false)}>Add</button>
+                  <button onClick={() => handleMeldChoice(true)}>Swap Wild</button>
+                  <button onClick={() => { setMeldChoice(null); setInteractionMode("none"); setAddCardIndex(null); }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {canMeld && !meldChoice && (
               <div style={{ marginTop: 8 }}>
                 {interactionMode !== "none" && (
                   <p style={{ fontSize: 13, fontStyle: "italic", marginBottom: 4 }}>

@@ -188,6 +188,10 @@ function isValidSet(
   wildRank: number,
 ): boolean {
   if (cards.length > 4) return false;
+  if (cards.length < 3) return false;
+
+  const allWilds = cards.every((c) => isWild(c, wildRank));
+  if (allWilds) return true;
 
   let setRank: number | null = null;
   const suits = new Set<number>();
@@ -316,6 +320,7 @@ export function addToMeld(
   sessionId: string,
   cardIndex: number,
   meldGroupId: string,
+  preferSwap?: boolean,
 ): void {
   assertPhase(state, "main_phase");
   assertCurrentPlayer(state, sessionId);
@@ -330,29 +335,49 @@ export function addToMeld(
     throw new Error("Invalid card index");
   }
 
-  const card = player.hand.splice(cardIndex, 1)[0];
+  const card = player.hand[cardIndex]!;
 
   const found = findCardsInMeld(state, meldGroupId);
   if (!found) {
-    player.hand.push(card);
     throw new Error("Meld not found");
   }
 
-  const newCards = [...found.cards, card];
-  if (!canMeld(newCards, state.wildRank)) {
-    player.hand.push(card);
-    if (
-      !isValidStraightFlush(found.cards, state.wildRank) &&
-      isValidSet(found.cards, state.wildRank) &&
-      found.cards.length >= 4
-    ) {
-      throw new Error("Set is full (max 4 cards) — try swapping a wild card");
-    }
-    throw new Error("Invalid manipulation");
+  const wildInMeld = found.cards.find((c) => isWild(c, state.wildRank));
+
+  const canAdd = canMeld([...found.cards, card], state.wildRank);
+  const canSwap = wildInMeld
+    ? canMeld(
+        found.cards.filter((c) => c !== wildInMeld).concat(card),
+        state.wildRank,
+      )
+    : false;
+
+  if (canAdd && canSwap && preferSwap === undefined) {
+    player.hand.splice(cardIndex, 1)[0];
+    card.meldGroupId = meldGroupId;
+    found.owner.board.push(card);
+    return;
   }
 
-  card.meldGroupId = meldGroupId;
-  found.owner.board.push(card);
+  if (canSwap && (!canAdd || preferSwap)) {
+    player.hand.splice(cardIndex, 1)[0];
+    card.meldGroupId = meldGroupId;
+    found.owner.board.push(card);
+    const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
+    if (boardIdx !== -1) found.owner.board.splice(boardIdx, 1);
+    wildInMeld!.meldGroupId = "";
+    player.hand.push(wildInMeld!);
+    return;
+  }
+
+  if (canAdd && !canSwap) {
+    player.hand.splice(cardIndex, 1)[0];
+    card.meldGroupId = meldGroupId;
+    found.owner.board.push(card);
+    return;
+  }
+
+  throw new Error("Invalid manipulation");
 }
 
 export function swapWild(

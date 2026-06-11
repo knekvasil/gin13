@@ -90,9 +90,9 @@ export class GameRoom extends Room<GameState> {
       } catch {}
     });
 
-    this.onMessage("add_to_meld", (client, msg: { cardIndex: number; meldGroupId: string }) => {
+    this.onMessage("add_to_meld", (client, msg: { cardIndex: number; meldGroupId: string; preferSwap?: boolean }) => {
       try {
-        addToMeld(this.state, client.sessionId, msg.cardIndex, msg.meldGroupId);
+        addToMeld(this.state, client.sessionId, msg.cardIndex, msg.meldGroupId, msg.preferSwap);
       } catch (e) {
         client.send("meld_error", { message: (e as Error).message });
       }
