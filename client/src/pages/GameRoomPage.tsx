@@ -344,28 +344,45 @@ export default function GameRoomPage() {
       {status === "playing" && phase !== "waiting" && (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="relative">
-            {/* Opponent area */}
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              {players.filter((p) => p.sessionId !== mySessionId).map((opponent) => {
+            {/* Opponents positioned around the table */}
+            {(() => {
+              const opps = players.filter((p) => p.sessionId !== mySessionId);
+              const positions = [
+                "col-span-3 flex justify-center",      // top
+                "flex items-start justify-center",       // left
+                "flex items-start justify-center",       // right
+              ];
+              const rotations = ["", "rotate-[-90]", "rotate-[90]"];
+              return opps.map((opponent, idx) => {
+                const pos = idx < positions.length ? positions[idx]! : positions[0]!;
+                const rot = idx < rotations.length ? rotations[idx]! : "";
                 const mg = new Map<string, CardData[]>();
                 for (const c of opponent.board) { if (!c.meldGroupId) continue; const g = mg.get(c.meldGroupId); if (g) g.push(c); else mg.set(c.meldGroupId, [c]); }
                 for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
                 const isActive = opponent.sessionId === currentPlayer?.sessionId;
                 return (
-                  <div key={opponent.sessionId} className={`rounded-lg border p-2 ${isActive ? "border-blue-400 dark:border-blue-500 ring-1 ring-blue-300" : "border-gray-200 dark:border-gray-700"}`}>
-                    <p className={`text-xs font-semibold mb-1 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`}>{opponent.name}</p>
-                    <div className="flex gap-1 mb-1">
-                      {Array.from({ length: opponent.hand.length }, (_, i) => <Card key={i} faceDown small />)}
+                  <div key={opponent.sessionId}
+                    className={`${pos} mb-3 ${rot}`}
+                    style={idx === 1 || idx === 2 ? { writingMode: "vertical-rl", textOrientation: "mixed" } : {}}
+                  >
+                    <div className={`rounded-lg border p-2 inline-flex flex-col ${isActive ? "border-blue-400 dark:border-blue-500 ring-1 ring-blue-300" : "border-gray-200 dark:border-gray-700"}`}>
+                      <p className={`text-xs font-semibold mb-1 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`}
+                        style={idx === 1 || idx === 2 ? { writingMode: "horizontal-tb" } : {}}
+                      >{opponent.name}</p>
+                      <div className="flex gap-1 mb-1" style={idx === 1 || idx === 2 ? { flexDirection: "column" } : {}}>
+                        {opponent.hand.length > 0 && <Card faceDown small />}
+                        {opponent.hand.length > 1 && <span className="text-[10px] text-gray-400">×{opponent.hand.length}</span>}
+                      </div>
+                      {[...mg.entries()].map(([gid, group]) => (
+                        <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
+                          {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
+                        </DroppableMeldGroup>
+                      ))}
                     </div>
-                    {[...mg.entries()].map(([gid, group]) => (
-                      <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
-                        {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
-                      </DroppableMeldGroup>
-                    ))}
                   </div>
                 );
-              })}
-            </div>
+              });
+            })()}
 
             {/* Center: deck + discard */}
             <div className="flex justify-center gap-8 mb-3">
