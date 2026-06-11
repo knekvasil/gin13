@@ -258,8 +258,14 @@ export class GameRoom extends Room<GameState> {
 
     this.setMetadata({
       totalRounds: this.state.totalRounds,
-      players: Math.max(0, this.clients.length - 1),
+      players: Math.max(0, this.clients.length),
     });
+
+    // Explicitly unlock the room so new players can join
+    // (handles edge cases where stale WebSocket connections inflate the client count)
+    if (this.clients.length < this.maxClients && this.locked) {
+      this.unlock();
+    }
 
     const timeoutMs = this.clients.length <= 1 ? 10_000 : RECONNECT_TIMEOUT_MS;
 

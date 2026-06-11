@@ -302,6 +302,40 @@ export default function GameRoomPage() {
 				{status === "playing" && <span>Wild: <strong className="text-gray-900 dark:text-gray-100">{wildName}</strong></span>}
 			</div>
 
+			{/* Player table — shown in all states */}
+			<div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+				<table className="w-full text-sm">
+					<thead>
+						<tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+							<th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Player</th>
+							<th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">ELO</th>
+							<th className="text-left px-3 py-2 font-medium text-gray-500 dark:text-gray-400">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						{Array.from({ length: 4 }, (_, i) => {
+							const p = players[i];
+							return (
+								<tr key={i} className={`border-b border-gray-100 dark:border-gray-800 last:border-0 ${p ? "" : "opacity-40"}`}>
+									<td className="px-3 py-2.5">{p ? p.name : <span className="text-gray-400 italic text-xs">Waiting...</span>}</td>
+									<td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 tabular-nums">1200</td>
+									<td className="px-3 py-2.5">
+										{p ? (
+											<div className="flex items-center gap-1.5">
+												<div className={`w-2 h-2 rounded-full ${p.disconnected ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
+												<span className="text-xs text-gray-500 dark:text-gray-400">{p.disconnected ? "Disconnected" : "Connected"}</span>
+											</div>
+										) : (
+											<span className="text-gray-400 italic text-xs">—</span>
+										)}
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
+
 			{/* Start Game */}
 			{status === "waiting" && players.length >= 3 && (
 				<button onClick={() => room.send("start_game")} className="w-full mb-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition">Start Game</button>
