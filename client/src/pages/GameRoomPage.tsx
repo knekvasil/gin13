@@ -183,8 +183,7 @@ export default function GameRoomPage() {
   const canDraw = phase === "draw" && isMyTurn;
   const canDiscard = phase === "discard" && isMyTurn;
   const canMeld = phase === "main_phase" && isMyTurn;
-  const canDrag = !!myPlayer?.hand.length; // always allow reorder
-  const canGameAction = canMeld || canDiscard;
+  const canDrag = !!myPlayer?.hand.length;
 
   const handleDrawFromDeck = () => { if (canDraw) room.send("draw", { source: "deck" }); };
   const handleDrawFromDiscard = () => { if (canDraw) room.send("draw", { source: "discard" }); };
@@ -246,9 +245,9 @@ export default function GameRoomPage() {
     const origIdx = parseInt(activeId.replace("hand-", ""), 10);
     const overId = String(over.id);
 
-    if (overId === "discard" && canGameAction) { handleDiscard(origIdx); return; }
+    if (overId === "discard" && canDiscard) { handleDiscard(origIdx); return; }
 
-    if (overId.startsWith("meld-group-") && canGameAction) {
+    if (overId.startsWith("meld-group-") && canMeld) {
       const mgId = overId.replace("meld-group-", "");
       const mCards: { rank: number; suit: number }[] = [];
       for (const p of players) for (const c of p.board) if (c.meldGroupId === mgId) mCards.push(c);
@@ -262,7 +261,7 @@ export default function GameRoomPage() {
       return;
     }
 
-    if (overId === "board" && canGameAction) { room.send("meld", { cardIndices: [origIdx] }); return; }
+    if (overId === "board" && canMeld) { room.send("meld", { cardIndices: [origIdx] }); return; }
 
     if (overId.startsWith("hand-")) {
       const overOrigIdx = parseInt(overId.replace("hand-", ""), 10);
@@ -359,8 +358,8 @@ export default function GameRoomPage() {
                       {Array.from({ length: opponent.hand.length }, (_, i) => <Card key={i} faceDown small />)}
                     </div>
                     {[...mg.entries()].map(([gid, group]) => (
-                      <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canGameAction}>
-                        {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} small />)}
+                      <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
+                        {group.map((card, ci) => <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank} />)}
                       </DroppableMeldGroup>
                     ))}
                   </div>
@@ -375,7 +374,7 @@ export default function GameRoomPage() {
                 <Card faceDown onClick={handleDrawFromDeck} disabled={!canDraw} />
                 <p className="text-[10px] text-gray-400 mt-0.5">{drawPile.length}</p>
               </div>
-              <DroppableDiscard id="discard" canDrop={canGameAction}>
+              <DroppableDiscard id="discard" canDrop={canDiscard}>
                 <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Discard</p>
                 {discardPile.length > 0 ? (
                   <Card rank={discardPile[discardPile.length - 1].rank} suit={discardPile[discardPile.length - 1].suit} wild={discardPile[discardPile.length - 1].rank === wildRank} onClick={handleDrawFromDiscard} disabled={!canDraw} />
@@ -389,14 +388,14 @@ export default function GameRoomPage() {
             {myBoard.length > 0 && (
               <div className="mb-3">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Your Melds</p>
-                <DroppableBoard id="board" canDrop={canGameAction}>
+                <DroppableBoard id="board" canDrop={canMeld}>
                   <div className="flex flex-wrap gap-2">
                     {(() => {
                       const mg = new Map<string, CardData[]>();
                       for (const c of myBoard) { if (!c.meldGroupId) continue; const g = mg.get(c.meldGroupId); if (g) g.push(c); else mg.set(c.meldGroupId, [c]); }
                       for (const [, group] of mg) { const nw = group.filter((c) => !isWild(c, wildRank)); const w = group.filter((c) => isWild(c, wildRank)); if (nw.length >= 2 && new Set(nw.map((c) => c.rank)).size > 1) group.sort((a, b) => a.rank - b.rank); else { group.length = 0; group.push(...nw, ...w); } }
                       return [...mg.entries()].map(([gid, group]) => (
-                        <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canGameAction}>
+                      <DroppableMeldGroup key={gid} id={`meld-group-${gid}`} canDrop={canMeld}>
                           {group.map((card, ci) => (
                             <Card key={ci} rank={card.rank} suit={card.suit} wild={card.rank === wildRank}
                               onClick={canMeld && card.rank === wildRank && interactionMode === "none" ? () => handleBoardCardClick(card, ci) : undefined}
@@ -411,7 +410,7 @@ export default function GameRoomPage() {
               </div>
             )}
             {myBoard.length === 0 && (
-              <DroppableBoard id="board" canDrop={canGameAction}>
+              <DroppableBoard id="board" canDrop={canMeld}>
                 <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">{canMeld ? "Drag cards here to meld" : "No melds yet"}</p>
               </DroppableBoard>
             )}
@@ -425,7 +424,7 @@ export default function GameRoomPage() {
                 if (handOrder.length !== hp.length) setHandOrder(hp.map((_, i) => i));
                 return (
                   <SortableContext items={handOrder.map((i) => `hand-${i}`)} strategy={rectSortingStrategy}>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 justify-center">
                       {handOrder.map((origIdx) => (
                         <SortableCard key={origIdx} card={hp[origIdx]!} origIdx={origIdx} wildRank={wildRank} canDrag={canDrag} onContextMenu={() => handleHandClick(origIdx)} />
                       ))}
