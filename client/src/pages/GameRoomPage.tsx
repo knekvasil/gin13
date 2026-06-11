@@ -5,9 +5,9 @@ import { createColyseusClient } from "../auth/colyseus";
 import type { Room } from "colyseus.js";
 import Card from "../components/Card";
 import {
-  DndContext, DragOverlay, closestCenter,
+  DndContext, DragOverlay, closestCorners,
   type DragEndEvent, type DragStartEvent,
-  useDraggable, useDroppable, useSensor, useSensors, PointerSensor, TouchSensor,
+  useDroppable, useSensor, useSensors, PointerSensor, TouchSensor,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -183,7 +183,8 @@ export default function GameRoomPage() {
   const canDraw = phase === "draw" && isMyTurn;
   const canDiscard = phase === "discard" && isMyTurn;
   const canMeld = phase === "main_phase" && isMyTurn;
-  const canDrag = canMeld || canDiscard;
+  const canDrag = !!myPlayer?.hand.length; // always allow reorder
+  const canGameAction = canMeld || canDiscard;
 
   const handleDrawFromDeck = () => { if (canDraw) room.send("draw", { source: "deck" }); };
   const handleDrawFromDiscard = () => { if (canDraw) room.send("draw", { source: "discard" }); };
@@ -230,7 +231,7 @@ export default function GameRoomPage() {
     const id = String(event.active.id);
     if (id.startsWith("hand-")) {
       const idx = parseInt(id.replace("hand-", ""), 10);
-      const card = myPlayer?.hand[handOrder[idx]!];
+      const card = myPlayer?.hand[idx];
       if (card) setActiveDragCard({ rank: card.rank, suit: card.suit });
     }
   };
@@ -245,11 +246,9 @@ export default function GameRoomPage() {
     const origIdx = parseInt(activeId.replace("hand-", ""), 10);
     const overId = String(over.id);
 
-    // Drop on discard pile
-    if (overId === "discard") { handleDiscard(origIdx); return; }
+    if (overId === "discard" && canGameAction) { handleDiscard(origIdx); return; }
 
-    // Drop on meld group
-    if (overId.startsWith("meld-group-")) {
+    if (overId.startsWith("meld-group-") && canGameAction) {
       const mgId = overId.replace("meld-group-", "");
       const mCards: { rank: number; suit: number }[] = [];
       for (const p of players) for (const c of p.board) if (c.meldGroupId === mgId) mCards.push(c);
@@ -263,17 +262,13 @@ export default function GameRoomPage() {
       return;
     }
 
-    // Drop on board (new meld)
-    if (overId === "board") { room.send("meld", { cardIndices: [origIdx] }); return; }
+    if (overId === "board" && canGameAction) { room.send("meld", { cardIndices: [origIdx] }); return; }
 
-    // Drop on hand (reorder)
     if (overId.startsWith("hand-")) {
       const overOrigIdx = parseInt(overId.replace("hand-", ""), 10);
       const oldIdx = handOrder.indexOf(origIdx);
       const newIdx = handOrder.indexOf(overOrigIdx);
-      if (oldIdx !== -1 && newIdx !== -1) {
-        setHandOrder(arrayMove(handOrder, oldIdx, newIdx));
-      }
+      if (oldIdx !== -1 && newIdx !== -1) setHandOrder(arrayMove(handOrder, oldIdx, newIdx));
       return;
     }
   };
@@ -349,7 +344,7 @@ export default function GameRoomPage() {
 
       {status === "playing" && phase !== "waiting" && (
         <div className="mb-6">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             {/* Draw & Discard */}
             <div className="flex gap-8 items-start mb-6">
               <div className="text-center">
