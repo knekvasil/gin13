@@ -233,6 +233,17 @@ export default function GameRoomPage() {
     };
   }, [token, roomId]);
 
+  const myPlayer_hook = players.find((p) => p.sessionId === mySessionId);
+  const myHand_len = myPlayer_hook?.hand.length ?? 0;
+
+  useEffect(() => {
+    setCardOrder((prev) => {
+      const hand = players.find((p) => p.sessionId === mySessionId)?.hand ?? [];
+      if (prev.length === hand.length) return prev;
+      return hand.map((_, i) => i);
+    });
+  }, [myHand_len]);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
@@ -261,12 +272,6 @@ export default function GameRoomPage() {
   const myHand = myPlayer?.hand ?? [];
   const myBoard = myPlayer?.board ?? [];
 
-  useEffect(() => {
-    setCardOrder((prev) => {
-      if (prev.length === myHand.length) return prev;
-      return myHand.map((_, i) => i);
-    });
-  }, [myHand.length]);
   const canAddToMeld = canMeld && myBoard.length > 0;
   const opponents = players.filter((p) => p.sessionId !== mySessionId);
 
