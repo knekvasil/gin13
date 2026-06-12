@@ -8,6 +8,13 @@ import {
   PointerSensor, TouchSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import AnimatedCard from "../components/AnimatedCard";
 import StagingWell from "../components/StagingWell";
 import MeldGroup from "../components/MeldGroup";
@@ -103,6 +110,42 @@ function OpponentSection({
   );
 }
 
+function SortableHandCard({
+  handIndex, card, wildRank, selected, canMeld, canDiscard, onClick,
+}: {
+  handIndex: number;
+  card: CardData;
+  wildRank: number;
+  selected: boolean;
+  canMeld: boolean;
+  canDiscard: boolean;
+  onClick?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `hand-${handIndex}`,
+    data: { type: "hand", handIndex, rank: card.rank, suit: card.suit },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0 : 1 }}
+      {...attributes}
+      {...listeners}
+    >
+      <AnimatedCard
+        rank={card.rank}
+        suit={card.suit}
+        wild={card.rank === wildRank}
+        selected={selected}
+        layoutId={`card-${card.rank}-${card.suit}`}
+        onClick={onClick}
+        disabled={!canMeld && !canDiscard}
+      />
+    </div>
+  );
+}
+
 export default function GameRoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { token } = useAuth();
@@ -129,6 +172,7 @@ export default function GameRoomPage() {
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
+  const [cardOrder, setCardOrder] = useState<number[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -253,12 +297,19 @@ export default function GameRoomPage() {
   const currentPlayer = players[currentPlayerIndex];
   const isMyTurn = currentPlayer?.sessionId === mySessionId;
   const canDraw = phase === "draw" && isMyTurn;
-  const canDiscard = phase === "discard" && isMyTurn;
+  const canDiscard = (phase === "discard" || phase === "main_phase") && isMyTurn;
   const canMeld = phase === "main_phase" && isMyTurn;
 
   const myPlayer = players.find((p) => p.sessionId === mySessionId);
   const myHand = myPlayer?.hand ?? [];
   const myBoard = myPlayer?.board ?? [];
+
+  useEffect(() => {
+    setCardOrder((prev) => {
+      if (prev.length === myHand.length) return prev;
+      return myHand.map((_, i) => i);
+    });
+  }, [myHand.length]);
   const canAddToMeld = canMeld && myBoard.length > 0;
   const opponents = players.filter((p) => p.sessionId !== mySessionId);
 
@@ -340,9 +391,25 @@ export default function GameRoomPage() {
     const sourceData = active.data.current as Record<string, unknown> | undefined;
     if (!sourceData) return;
 
+    // Hand-to-hand reorder
+    if (sourceData.type === "hand" && dropId.startsWith("hand-")) {
+      const activeHandIdx = sourceData.handIndex as number;
+      const overHandIdx = parseInt(dropId.split("-")[1]);
+      if (activeHandIdx !== overHandIdx) {
+        const oldIdx = cardOrder.indexOf(activeHandIdx);
+        const newIdx = cardOrder.indexOf(overHandIdx);
+        if (oldIdx !== -1 && newIdx !== -1) {
+          setCardOrder(arrayMove(cardOrder, oldIdx, newIdx));
+        }
+      }
+      return;
+    }
+
     if (dropId === "discard-pile" && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
       if (canDiscard && room) {
+        setStagedCards([]);
+        setSelectedCardIndices([]);
         room.send("discard", { cardIndex: handIndex });
       }
       return;
@@ -430,6 +497,8 @@ export default function GameRoomPage() {
     );
     return { ...p, roundScore };
   });
+
+  const handSortableIds = cardOrder.map((idx) => `hand-${idx}`);
 
   return (
     <DndContext
@@ -585,33 +654,37 @@ export default function GameRoomPage() {
               {myHand.length === 0 && (
                 <p className="text-muted-foreground p-2 text-xs">Waiting for game to start...</p>
               )}
-              {myHand.map((card, i) => {
-                const isStaged = stagedCards.some((s) => s.handIndex === i);
-                if (isStaged) return null;
-                const isSelected = selectedCardIndices.includes(i);
-                return (
-                  <AnimatedCard
-                    key={i}
-                    rank={card.rank}
-                    suit={card.suit}
-                    wild={isWild(card, wildRank)}
-                    selected={isSelected}
-                    dragId={`hand-${i}`}
-                    dragData={{ type: "hand", handIndex: i, rank: card.rank, suit: card.suit }}
-                    layoutId={`card-${card.rank}-${card.suit}`}
-                    onClick={
-                      canMeld
-                        ? () => setSelectedCardIndices((prev) =>
-                            prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
-                          )
-                        : canDiscard
-                        ? () => handleDiscard(i)
-                        : undefined
-                    }
-                    disabled={!canMeld && !canDiscard}
-                  />
-                );
-              })}
+              {myHand.length > 0 && (
+                <SortableContext items={handSortableIds} strategy={horizontalListSortingStrategy}>
+                  {cardOrder.map((idx) => {
+                    const card = myHand[idx];
+                    if (!card) return null;
+                    const isStaged = stagedCards.some((s) => s.handIndex === idx);
+                    if (isStaged) return null;
+                    const isSelected = selectedCardIndices.includes(idx);
+                    return (
+                      <SortableHandCard
+                        key={idx}
+                        handIndex={idx}
+                        card={card}
+                        wildRank={wildRank}
+                        selected={isSelected}
+                        canMeld={canMeld}
+                        canDiscard={canDiscard}
+                        onClick={
+                          canMeld
+                            ? () => setSelectedCardIndices((prev) =>
+                                prev.includes(idx) ? prev.filter((x) => x !== idx) : [...prev, idx]
+                              )
+                            : canDiscard
+                            ? () => handleDiscard(idx)
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
+                </SortableContext>
+              )}
             </div>
 
             <PlayerChip player={myPlayer ?? { sessionId: mySessionId, userId: "", name: "You", score: 0, disconnected: false, hand: [], board: [] }} />

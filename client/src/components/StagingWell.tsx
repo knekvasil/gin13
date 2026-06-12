@@ -55,6 +55,8 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
           suit={card.suit}
           wild={card.rank === wildRank}
           layoutId={`card-${card.rank}-${card.suit}`}
+          dragId={`staging-${i}`}
+          dragData={{ type: "staging", stagingIndex: i, rank: card.rank, suit: card.suit }}
         />
       ))}
       {valid && (
