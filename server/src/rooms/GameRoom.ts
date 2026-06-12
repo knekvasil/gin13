@@ -180,21 +180,160 @@ export class GameRoom extends Room<GameState> {
     }
   }
 
-  private async persistMatchEnd(): Promise<void> {
-    for (const player of this.state.players) {
-      const matchPlayer = await prisma.matchPlayer.findUnique({
-        where: { matchId_userId: { matchId: this.roomId, userId: player.userId } },
-      });
-      if (matchPlayer) {
-        await prisma.matchPlayer.update({
-          where: { id: matchPlayer.id },
-          data: {
-            score: player.score,
-            finalRank: player.sessionId === this.state.winnerSessionId ? 1 : null,
-          },
-        });
+  private computeEloDeltas(rankedPlayers: { userId: string; currentElo: number }[]): Map<string, number> {
+    const K = 32;
+    const deltas = new Map<string, number>();
+    const count = new Map<string, number>();
+
+    for (let i = 0; i < rankedPlayers.length; i++) {
+      for (let j = i + 1; j < rankedPlayers.length; j++) {
+        const higher = rankedPlayers[i];
+        const lower = rankedPlayers[j];
+        const expected = 1 / (1 + Math.pow(10, (lower.currentElo - higher.currentElo) / 400));
+        deltas.set(higher.userId, (deltas.get(higher.userId) ?? 0) + K * (1 - expected));
+        deltas.set(lower.userId, (deltas.get(lower.userId) ?? 0) + K * (0 - (1 - expected)));
+        count.set(higher.userId, (count.get(higher.userId) ?? 0) + 1);
+        count.set(lower.userId, (count.get(lower.userId) ?? 0) + 1);
       }
     }
+
+    for (const userId of deltas.keys()) {
+      const c = count.get(userId) ?? 1;
+      deltas.set(userId, Math.round(deltas.get(userId)! / c));
+    }
+    return deltas;
+  }
+
+  private async persistMatchEnd(): Promise<void> {
+    type RoundResultRow = { playerId: string; roundNumber: number; handScore: number };
+    const roundResults = (await prisma.roundResult.findMany({
+      where: { matchId: this.roomId },
+    })) as unknown as RoundResultRow[];
+
+    const roundWinsPerPlayer = new Map<string, number>();
+    const maxHandScorePerPlayer = new Map<string, number>();
+    const opponentScoresInWonRounds = new Map<string, number[]>();
+
+    const roundsByNumber = new Map<number, RoundResultRow[]>();
+    for (const rr of roundResults) {
+      const group = roundsByNumber.get(rr.roundNumber) ?? [];
+      group.push(rr);
+      roundsByNumber.set(rr.roundNumber, group);
+    }
+
+    for (const entries of roundsByNumber.values()) {
+      const minScore = Math.min(...entries.map((e: RoundResultRow) => e.handScore));
+      const winners = entries.filter((e: RoundResultRow) => e.handScore === minScore);
+      for (const winner of winners) {
+        const prev = roundWinsPerPlayer.get(winner.playerId) ?? 0;
+        roundWinsPerPlayer.set(winner.playerId, prev + 1);
+
+        const oppSum = entries
+          .filter((e: RoundResultRow) => e.playerId !== winner.playerId)
+          .reduce((s: number, e: RoundResultRow) => s + e.handScore, 0);
+        const arr = opponentScoresInWonRounds.get(winner.playerId) ?? [];
+        arr.push(oppSum);
+        opponentScoresInWonRounds.set(winner.playerId, arr);
+      }
+      for (const entry of entries) {
+        const prev = maxHandScorePerPlayer.get(entry.playerId) ?? 0;
+        if (entry.handScore > prev) {
+          maxHandScorePerPlayer.set(entry.playerId, entry.handScore);
+        }
+      }
+    }
+
+    const sortedPlayers = [...this.state.players].sort((a: any, b: any) => a.score - b.score);
+    const rankedPlayers = sortedPlayers.map((p: any, i: number) => ({ player: p, rank: i + 1 }));
+
+    const userIds = rankedPlayers.map((rp: any) => rp.player.userId);
+    const existingStats = await prisma.playerStats.findMany({
+      where: { userId: { in: userIds } },
+    });
+    const eloMap = new Map<string, number>(existingStats.map((s: any) => [s.userId, s.elo]));
+
+    const eloInputs = rankedPlayers.map((rp: any) => ({
+      userId: rp.player.userId,
+      currentElo: eloMap.get(rp.player.userId) ?? 1000,
+    }));
+    const eloDeltas = this.computeEloDeltas(eloInputs);
+
+    for (const entry of rankedPlayers) {
+      const p: any = (entry as any).player;
+      const rank: number = (entry as any).rank;
+
+      const matchPlayer = await prisma.matchPlayer.findUnique({
+        where: { matchId_userId: { matchId: this.roomId, userId: p.userId } },
+      });
+      if (!matchPlayer) continue;
+
+      await prisma.matchPlayer.update({
+        where: { id: matchPlayer.id },
+        data: { score: p.score, finalRank: rank },
+      });
+
+      const roundWins = roundWinsPerPlayer.get(p.userId) ?? 0;
+      const biggestRoundLoss = maxHandScorePerPlayer.get(p.userId) ?? null;
+      const opponentPoints = opponentScoresInWonRounds.get(p.userId) ?? [];
+      const maxOpponentPoints = opponentPoints.length > 0 ? Math.max(...opponentPoints) : null;
+      const isWin = rank === 1;
+      const eloDelta = eloDeltas.get(p.userId) ?? 0;
+
+      const existing = await prisma.playerStats.findUnique({
+        where: { userId: p.userId },
+      });
+
+      await prisma.playerStats.upsert({
+        where: { userId: p.userId },
+        create: {
+          userId: p.userId,
+          elo: 1000 + eloDelta,
+          totalMatches: 1,
+          wins: isWin ? 1 : 0,
+          totalScore: p.score,
+          roundWins,
+          biggestRoundLoss,
+          mostRoundsWonInAGame: roundWins || null,
+          maxOpponentPointsInWonRound: maxOpponentPoints,
+          biggestGameWin: isWin ? p.score : null,
+          biggestGameLoss: !isWin ? p.score : null,
+        },
+        update: {
+          elo: { increment: eloDelta },
+          totalMatches: { increment: 1 },
+          wins: isWin ? { increment: 1 } : undefined,
+          totalScore: { increment: p.score },
+          roundWins: { increment: roundWins },
+          biggestRoundLoss: biggestRoundLoss != null && (existing?.biggestRoundLoss == null || biggestRoundLoss > existing.biggestRoundLoss)
+            ? { set: biggestRoundLoss }
+            : undefined,
+          mostRoundsWonInAGame: roundWins > 0 && (existing?.mostRoundsWonInAGame == null || roundWins > existing.mostRoundsWonInAGame)
+            ? { set: roundWins }
+            : undefined,
+          maxOpponentPointsInWonRound: maxOpponentPoints != null && (existing?.maxOpponentPointsInWonRound == null || maxOpponentPoints > existing.maxOpponentPointsInWonRound)
+            ? { set: maxOpponentPoints }
+            : undefined,
+          biggestGameWin: isWin && (existing?.biggestGameWin == null || p.score < existing.biggestGameWin)
+            ? { set: p.score }
+            : undefined,
+          biggestGameLoss: !isWin && (existing?.biggestGameLoss == null || p.score > existing.biggestGameLoss)
+            ? { set: p.score }
+            : undefined,
+        },
+      });
+
+      await prisma.playerMatchResult.create({
+        data: {
+          userId: p.userId,
+          matchId: this.roomId,
+          rank,
+          score: p.score,
+          roundsWon: roundWins,
+          endedAt: new Date(),
+        },
+      });
+    }
+
     await prisma.match.update({
       where: { id: this.roomId },
       data: { status: "FINISHED", endedAt: new Date() },
@@ -245,6 +384,11 @@ export class GameRoom extends Room<GameState> {
       totalRounds: this.state.totalRounds,
       players: this.clients.length,
     });
+
+    prisma.user.update({
+      where: { id: client.auth.userId },
+      data: { lastSeen: new Date() },
+    }).catch(() => {});
   }
 
   onLeave(client: any) {
@@ -260,6 +404,11 @@ export class GameRoom extends Room<GameState> {
       totalRounds: this.state.totalRounds,
       players: Math.max(0, this.clients.length - 1),
     });
+
+    prisma.user.update({
+      where: { id: userId },
+      data: { lastSeen: new Date() },
+    }).catch(() => {});
 
     const timeoutMs = this.clients.length <= 1 ? 10_000 : RECONNECT_TIMEOUT_MS;
 
