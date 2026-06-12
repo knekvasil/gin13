@@ -13,6 +13,13 @@ import StagingWell from "../components/StagingWell";
 import MeldGroup from "../components/MeldGroup";
 import DiscardZone from "../components/DiscardZone";
 import { isWild, canMeldCards, RANK_NAMES } from "../lib/card-utils";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 
 type InteractionMode = "none" | "adding" | "swapping";
 
@@ -34,6 +41,66 @@ interface PlayerState {
 
 interface StagedCard extends CardData {
   handIndex: number;
+}
+
+function PlayerChip({ player }: { player: { name: string; score: number; disconnected: boolean } }) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1 text-xs">
+      <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+        {player.name.charAt(0).toUpperCase()}
+      </span>
+      <span className="font-semibold">{player.name}</span>
+      <span className="text-muted-foreground">{player.score}</span>
+      {player.disconnected && <span className="text-destructive text-[10px]">(DC)</span>}
+    </div>
+  );
+}
+
+function MeldsDisplay({
+  player, wildRank, getMeldGroups, isMeldActive,
+}: {
+  player: PlayerState;
+  wildRank: number;
+  getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
+  isMeldActive: boolean;
+}) {
+  const groups = getMeldGroups(player);
+  if (groups.size === 0) return null;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {[...groups].map(([meldGroupId, group]) => (
+        <MeldGroup
+          key={meldGroupId}
+          meldGroupId={meldGroupId}
+          cards={group}
+          wildRank={wildRank}
+          isOwn={false}
+          isActive={isMeldActive}
+        />
+      ))}
+    </div>
+  );
+}
+
+function OpponentSection({
+  player, wildRank, getMeldGroups, isMeldActive,
+}: {
+  player: PlayerState;
+  wildRank: number;
+  getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
+  isMeldActive: boolean;
+}) {
+  return (
+    <div className="flex flex-shrink-0 flex-col items-center gap-1 px-4 py-1.5">
+      <PlayerChip player={player} />
+      <div className="flex gap-0.5">
+        {player.hand.map((_, i) => (
+          <AnimatedCard key={i} faceDown small />
+        ))}
+      </div>
+      <MeldsDisplay player={player} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={isMeldActive} />
+    </div>
+  );
 }
 
 export default function GameRoomPage() {
@@ -167,20 +234,18 @@ export default function GameRoomPage() {
 
   if (error) {
     return (
-      <div style={{ padding: 32, textAlign: "center" }}>
-        <h1 style={{ fontSize: 24, marginBottom: 12 }}>Error</h1>
-        <p style={{ marginBottom: 16 }}>{error}</p>
-        <button onClick={() => navigate("/")}
-          style={{ padding: "8px 20px", cursor: "pointer" }}
-        >Back to Lobby</button>
+      <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+        <h1 className="text-2xl font-semibold">Error</h1>
+        <p className="text-muted-foreground">{error}</p>
+        <Button onClick={() => navigate("/")}>Back to Lobby</Button>
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        <p style={{ fontSize: 18, color: "#888" }}>Joining room...</p>
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-muted-foreground text-lg">Joining room...</p>
       </div>
     );
   }
@@ -197,14 +262,11 @@ export default function GameRoomPage() {
   const canAddToMeld = canMeld && myBoard.length > 0;
   const opponents = players.filter((p) => p.sessionId !== mySessionId);
 
-  // Arrange opponents: top, right, left (for 3-4 players)
   const topOpponent = opponents[0] ?? null;
   const rightOpponent = opponents[1] ?? null;
   const leftOpponent = opponents[2] ?? null;
 
   const wildName = RANK_NAMES[wildRank] || String(wildRank);
-
-  // ── Handlers ──
 
   const handleDrawFromDeck = () => {
     if (!canDraw || !room) return;
@@ -253,8 +315,6 @@ export default function GameRoomPage() {
     setSelectedCardIndices([]);
   };
 
-  // ── Drag and Drop ──
-
   const getCardFromHand = (handIndex: number): CardData | null => {
     return myHand[handIndex] ?? null;
   };
@@ -268,7 +328,6 @@ export default function GameRoomPage() {
     setActiveDragId(null);
 
     if (!over) {
-      // Dropped in the void — if from staging, return to hand
       const data = active.data.current as Record<string, unknown> | undefined;
       if (data?.type === "staging") {
         const idx = data.stagingIndex as number;
@@ -281,7 +340,6 @@ export default function GameRoomPage() {
     const sourceData = active.data.current as Record<string, unknown> | undefined;
     if (!sourceData) return;
 
-    // ── Discard pile drop ──
     if (dropId === "discard-pile" && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
       if (canDiscard && room) {
@@ -290,7 +348,6 @@ export default function GameRoomPage() {
       return;
     }
 
-    // ── Staging well drop ──
     if (dropId === "staging-well" && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
       const card = getCardFromHand(handIndex);
@@ -299,7 +356,6 @@ export default function GameRoomPage() {
       return;
     }
 
-    // ── Meld group drop (add card) ──
     if (dropId.startsWith("meld-group-") && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
       const meldGroupId = (over.data.current as Record<string, unknown> | undefined)?.meldGroupId as string;
@@ -308,7 +364,6 @@ export default function GameRoomPage() {
       return;
     }
 
-    // ── Wild card drop (swap wild) ──
     if (dropId.startsWith("wild-") && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
       const meldGroupId = (over.data.current as Record<string, unknown> | undefined)?.meldGroupId as string;
@@ -316,23 +371,17 @@ export default function GameRoomPage() {
       room.send("add_to_meld", { cardIndex: handIndex, meldGroupId, preferSwap: true });
       return;
     }
-
-    // ── Staging card dropped back in void ── handled above in !over
   };
-
-  // ── Drag Overlay render ──
 
   const renderDragOverlay = () => {
     if (!activeDragId) return null;
     const data = (() => {
-      // Check hand
       const parts = activeDragId.split("-");
       if (parts[0] === "hand") {
         const idx = parseInt(parts[1]);
         const card = myHand[idx];
         if (card) return { rank: card.rank, suit: card.suit, wild: isWild(card, wildRank) };
       }
-      // Check staging
       if (parts[0] === "staging") {
         const idx = parseInt(parts[1]);
         const card = stagedCards[idx];
@@ -343,7 +392,7 @@ export default function GameRoomPage() {
 
     if (!data) return null;
     return (
-      <div style={{ pointerEvents: "none", transform: "rotate(3deg)" }}>
+      <div className="pointer-events-none rotate-3">
         <AnimatedCard
           rank={data.rank}
           suit={data.suit}
@@ -353,8 +402,6 @@ export default function GameRoomPage() {
       </div>
     );
   };
-
-  // ── Meld groups data ──
 
   function getMeldGroups(player: PlayerState): Map<string, CardData[]> {
     const groups = new Map<string, CardData[]>();
@@ -376,8 +423,6 @@ export default function GameRoomPage() {
     return groups;
   }
 
-  // ── Round scores ──
-
   const roundScores = players.map((p) => {
     const roundScore = p.hand.reduce(
       (sum, card) => sum + (card.rank === wildRank ? 25 : card.rank > 10 ? 10 : card.rank === 1 ? 10 : card.rank),
@@ -386,8 +431,6 @@ export default function GameRoomPage() {
     return { ...p, roundScore };
   });
 
-  // ── Render ──
-
   return (
     <DndContext
       sensors={sensors}
@@ -395,28 +438,11 @@ export default function GameRoomPage() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        overflow: "hidden",
-        background: "#1a5c2a",
-        fontFamily: "system-ui, sans-serif",
-        color: "#fff",
-      }}>
+      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground font-sans">
         {/* Top bar: round info */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          padding: "6px 16px",
-          background: "rgba(0,0,0,0.2)",
-          fontSize: 13,
-          flexShrink: 0,
-        }}>
+        <div className="flex flex-shrink-0 items-center justify-center gap-4 bg-muted/50 px-4 py-1.5 text-xs">
           <span>Round {currentRound + 1}/13</span>
-          <span style={{ fontWeight: "bold" }}>Wild: {wildName}</span>
+          <span className="font-semibold">Wild: {wildName}</span>
           {status === "playing" && phase !== "waiting" && (
             <span>Phase: {phase === "draw" ? "Draw" : phase === "main_phase" ? "Meld" : "Discard"}</span>
           )}
@@ -425,34 +451,22 @@ export default function GameRoomPage() {
 
         {/* Timer bar */}
         {status === "playing" && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
-          <div style={{ height: 4, width: "100%", background: "rgba(0,0,0,0.3)", flexShrink: 0 }}>
-            {isMyTurn ? (
-              <div style={{
+          <div className="h-1 w-full flex-shrink-0 bg-muted">
+            <div
+              className="h-full transition-[width] duration-100 linear"
+              style={{
                 width: `${timerPct}%`,
-                height: "100%",
-                background: timerPct > 30 ? "#4caf50" : timerPct > 10 ? "#ff9800" : "#f44336",
-                transition: "width 0.1s linear",
-              }} />
-            ) : (
-              <div style={{
-                width: `${timerPct}%`,
-                height: "100%",
-                background: "#555",
-                transition: "width 0.1s linear",
-                opacity: 0.5,
-              }} />
-            )}
+                background: isMyTurn
+                  ? timerPct > 30 ? "var(--color-primary)" : timerPct > 10 ? "#ff9800" : "#f44336"
+                  : "var(--color-muted-foreground)",
+                opacity: isMyTurn ? 1 : 0.5,
+              }}
+            />
           </div>
         )}
 
         {/* Main board area */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          overflow: "hidden",
-        }}>
+        <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Top opponent */}
           {topOpponent && (
             <OpponentSection
@@ -463,55 +477,34 @@ export default function GameRoomPage() {
             />
           )}
 
-          {/* Middle: left opponent + center area + right opponent */}
-          <div style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            position: "relative",
-          }}>
+          {/* Middle: left opponent + center + right opponent */}
+          <div className="relative flex flex-1 items-center">
             {/* Left opponent */}
             {leftOpponent && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 8, width: 140, flexShrink: 0 }}>
+              <div className="flex w-[140px] flex-shrink-0 flex-col items-center gap-2 p-2">
                 <PlayerChip player={leftOpponent} />
-                <div style={{ display: "flex", gap: 2 }}>
+                <div className="flex gap-0.5">
                   {leftOpponent.hand.map((_, i) => (
                     <AnimatedCard key={i} faceDown small />
                   ))}
                 </div>
-                <MeldsDisplay
-                  player={leftOpponent}
-                  wildRank={wildRank}
-                  getMeldGroups={getMeldGroups}
-                  isMeldActive={canAddToMeld}
-                />
+                <MeldsDisplay player={leftOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
               </div>
             )}
 
             {/* Center: draw, discard, staging */}
-            <div style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-            }}>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3">
               {/* Draw + Discard */}
-              <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: "rgba(255,255,255,0.7)" }}>
-                    Draw
-                  </p>
+              <div className="flex items-start gap-6">
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-1 text-[11px] font-semibold">Draw</p>
                   <AnimatedCard
                     faceDown
                     onClick={handleDrawFromDeck}
                     disabled={!canDraw}
                     layoutId="draw-pile"
                   />
-                  <p style={{ fontSize: 10, marginTop: 4, color: "rgba(255,255,255,0.5)" }}>
-                    {drawPile.length}
-                  </p>
+                  <p className="text-muted-foreground mt-1 text-[10px]">{drawPile.length}</p>
                 </div>
                 <DiscardZone
                   discardPile={discardPile}
@@ -531,72 +524,50 @@ export default function GameRoomPage() {
 
               {/* Action buttons */}
               {status === "waiting" && players.length >= 3 && (
-                <button onClick={() => room?.send("start_game")}
-                  style={{ padding: "10px 24px", fontSize: 15, fontWeight: "bold", cursor: "pointer", background: "#4caf50", color: "#fff", border: "none", borderRadius: 8 }}
-                >Start Game</button>
+                <Button size="lg" onClick={() => room?.send("start_game")}>
+                  Start Game
+                </Button>
               )}
 
               {canMeld && interactionMode === "none" && stagedCards.length === 0 && (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={handlePassMeld}
-                    style={{ padding: "8px 16px", fontSize: 13, cursor: "pointer", background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6 }}
-                  >Pass Meld</button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={handlePassMeld}>Pass Meld</Button>
                   {canAddToMeld && (
-                    <button onClick={handleEnterAddMode}
-                      style={{ padding: "8px 16px", fontSize: 13, cursor: "pointer", background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6 }}
-                    >Add to Meld</button>
+                    <Button variant="secondary" onClick={handleEnterAddMode}>Add to Meld</Button>
                   )}
                 </div>
               )}
 
               {interactionMode === "adding" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, fontStyle: "italic", color: "rgba(255,255,255,0.8)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs italic">
                     Click a meld group to add card
                   </span>
-                  <button onClick={handleCancelMode}
-                    style={{ padding: "6px 12px", fontSize: 12, cursor: "pointer", background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6 }}
-                  >Cancel</button>
+                  <Button variant="ghost" size="sm" onClick={handleCancelMode}>Cancel</Button>
                 </div>
               )}
 
-              {meldError && (
-                <p style={{ fontSize: 12, color: "#ff6b6b", margin: 0 }}>{meldError}</p>
-              )}
+              {meldError && <p className="text-destructive m-0 text-xs">{meldError}</p>}
             </div>
 
             {/* Right opponent */}
             {rightOpponent && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 8, width: 140, flexShrink: 0 }}>
+              <div className="flex w-[140px] flex-shrink-0 flex-col items-center gap-2 p-2">
                 <PlayerChip player={rightOpponent} />
-                <div style={{ display: "flex", gap: 2 }}>
+                <div className="flex gap-0.5">
                   {rightOpponent.hand.map((_, i) => (
                     <AnimatedCard key={i} faceDown small />
                   ))}
                 </div>
-                <MeldsDisplay
-                  player={rightOpponent}
-                  wildRank={wildRank}
-                  getMeldGroups={getMeldGroups}
-                  isMeldActive={canAddToMeld}
-                />
+                <MeldsDisplay player={rightOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
               </div>
             )}
           </div>
 
           {/* Bottom: your area */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 16px",
-            flexShrink: 0,
-            background: "rgba(0,0,0,0.15)",
-          }}>
-            {/* Your melds */}
+          <div className="flex flex-shrink-0 flex-col items-center gap-1.5 bg-muted/30 px-4 py-2">
             {myBoard.length > 0 && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="flex items-center gap-2">
                 {[...getMeldGroups(myPlayer!)].map(([meldGroupId, group]) => (
                   <MeldGroup
                     key={meldGroupId}
@@ -610,12 +581,9 @@ export default function GameRoomPage() {
               </div>
             )}
 
-            {/* Your hand */}
-            <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+            <div className="flex flex-wrap justify-center gap-0.5">
               {myHand.length === 0 && (
-                <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", padding: 8 }}>
-                  Waiting for game to start...
-                </p>
+                <p className="text-muted-foreground p-2 text-xs">Waiting for game to start...</p>
               )}
               {myHand.map((card, i) => {
                 const isStaged = stagedCards.some((s) => s.handIndex === i);
@@ -652,70 +620,72 @@ export default function GameRoomPage() {
 
         {/* Round ended overlay */}
         {phase === "round_ended" && (
-          <div style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
-          }}>
-            <div style={{ background: "#fff", color: "#333", borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 400 }}>
-              <h2 style={{ fontSize: 20, marginBottom: 12 }}>Round {currentRound + 1} Summary</h2>
-              <p style={{ fontSize: 14, marginBottom: 12, color: "#666" }}>Wild: {wildName}</p>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Player</th>
-                    <th style={{ textAlign: "right", padding: "4px 8px" }}>Round</th>
-                    <th style={{ textAlign: "right", padding: "4px 8px" }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roundScores.map((p) => (
-                    <tr key={p.sessionId} style={{ borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "4px 8px" }}>{p.name}</td>
-                      <td style={{ textAlign: "right", padding: "4px 8px" }}>{p.roundScore}</td>
-                      <td style={{ textAlign: "right", padding: "4px 8px" }}>{p.score}</td>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <Card className="w-full max-w-sm">
+              <CardHeader>
+                <CardTitle>Round {currentRound + 1} Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-3 text-sm">Wild: {wildName}</p>
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="border-border border-b">
+                      <th className="px-2 py-1 text-left">Player</th>
+                      <th className="px-2 py-1 text-right">Round</th>
+                      <th className="px-2 py-1 text-right">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {roundScores.map((p) => (
+                      <tr key={p.sessionId} className="border-border/50 border-b">
+                        <td className="px-2 py-1">{p.name}</td>
+                        <td className="px-2 py-1 text-right">{p.roundScore}</td>
+                        <td className="px-2 py-1 text-right">{p.score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
           </div>
         )}
 
         {/* Match finished */}
         {status === "finished" && winnerSessionId && (
-          <div style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
-          }}>
-            <div style={{ background: "#fff", color: "#333", borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 400 }}>
-              <h2 style={{ fontSize: 22, marginBottom: 8 }}>Match Over!</h2>
-              <p style={{ fontSize: 16, marginBottom: 16, color: "#4caf50", fontWeight: "bold" }}>
-                Winner: {players.find((p) => p.sessionId === winnerSessionId)?.name ?? "Unknown"}
-              </p>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 16 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #ddd" }}>
-                    <th style={{ textAlign: "left", padding: "4px 8px" }}>#</th>
-                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Player</th>
-                    <th style={{ textAlign: "right", padding: "4px 8px" }}>Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...players]
-                    .sort((a, b) => a.score - b.score)
-                    .map((p, i) => (
-                      <tr key={p.sessionId} style={{ borderBottom: "1px solid #eee" }}>
-                        <td style={{ padding: "4px 8px" }}>{i + 1}</td>
-                        <td style={{ padding: "4px 8px" }}>{p.name}</td>
-                        <td style={{ textAlign: "right", padding: "4px 8px" }}>{p.score}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              <button onClick={() => { cleanupRef.current(); navigate("/"); }}
-                style={{ padding: "8px 20px", cursor: "pointer", width: "100%" }}
-              >Back to Lobby</button>
-            </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <Card className="w-full max-w-sm">
+              <CardHeader>
+                <CardTitle>Match Over!</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-primary text-base font-bold">
+                  Winner: {players.find((p) => p.sessionId === winnerSessionId)?.name ?? "Unknown"}
+                </p>
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="border-border border-b">
+                      <th className="px-2 py-1 text-left">#</th>
+                      <th className="px-2 py-1 text-left">Player</th>
+                      <th className="px-2 py-1 text-right">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...players]
+                      .sort((a, b) => a.score - b.score)
+                      .map((p, i) => (
+                        <tr key={p.sessionId} className="border-border/50 border-b">
+                          <td className="px-2 py-1">{i + 1}</td>
+                          <td className="px-2 py-1">{p.name}</td>
+                          <td className="px-2 py-1 text-right">{p.score}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                <Button className="w-full" onClick={() => { cleanupRef.current(); navigate("/"); }}>
+                  Back to Lobby
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
@@ -724,86 +694,5 @@ export default function GameRoomPage() {
         {renderDragOverlay()}
       </DragOverlay>
     </DndContext>
-  );
-}
-
-// ── Sub-components ──
-
-function PlayerChip({ player }: { player: { name: string; score: number; disconnected: boolean } }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 6,
-      padding: "4px 10px", borderRadius: 8,
-      background: "rgba(0,0,0,0.2)", fontSize: 12,
-    }}>
-      <div style={{
-        width: 24, height: 24, borderRadius: "50%",
-        background: "#4a90d9", display: "flex",
-        alignItems: "center", justifyContent: "center",
-        fontWeight: "bold", fontSize: 11, color: "#fff",
-      }}>
-        {player.name.charAt(0).toUpperCase()}
-      </div>
-      <span style={{ fontWeight: 600 }}>{player.name}</span>
-      <span style={{ color: "rgba(255,255,255,0.6)" }}>{player.score}</span>
-      {player.disconnected && (
-        <span style={{ color: "#ff6b6b", fontSize: 10 }}>(DC)</span>
-      )}
-    </div>
-  );
-}
-
-function MeldsDisplay({
-  player, wildRank, getMeldGroups, isMeldActive,
-}: {
-  player: PlayerState;
-  wildRank: number;
-  getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
-  isMeldActive: boolean;
-}) {
-  const groups = getMeldGroups(player);
-  if (groups.size === 0) return null;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-      {[...groups].map(([meldGroupId, group]) => (
-        <MeldGroup
-          key={meldGroupId}
-          meldGroupId={meldGroupId}
-          cards={group}
-          wildRank={wildRank}
-          isOwn={false}
-          isActive={isMeldActive}
-        />
-      ))}
-    </div>
-  );
-}
-
-function OpponentSection({
-  player, wildRank, getMeldGroups, isMeldActive,
-}: {
-  player: PlayerState;
-  wildRank: number;
-  getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
-  isMeldActive: boolean;
-}) {
-  return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-      padding: "6px 16px", flexShrink: 0,
-    }}>
-      <PlayerChip player={player} />
-      <div style={{ display: "flex", gap: 2 }}>
-        {player.hand.map((_, i) => (
-          <AnimatedCard key={i} faceDown small />
-        ))}
-      </div>
-      <MeldsDisplay
-        player={player}
-        wildRank={wildRank}
-        getMeldGroups={getMeldGroups}
-        isMeldActive={isMeldActive}
-      />
-    </div>
   );
 }

@@ -23,30 +23,20 @@ export default function DiscardZone({ discardPile, wildRank, isActive }: Discard
   const topCard = discardPile.length > 0 ? discardPile[discardPile.length - 1] : null;
 
   return (
-    <div
-      style={{ textAlign: "center", position: "relative" }}
-    >
-      <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "#555" }}>
-        Discard
-      </p>
+    <div className="relative text-center">
+      <p className="text-muted-foreground mb-1 text-xs font-semibold">Discard</p>
       <div
         ref={setNodeRef}
-        style={{
-          minWidth: 56,
-          minHeight: 80,
-          border: "2px solid",
-          borderColor: isOver ? "#f44336" : "#999",
-          borderRadius: 8,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: isOver ? "rgba(244, 67, 54, 0.12)" : "rgba(0,0,0,0.03)",
-          transition: "background 0.15s, border-color 0.15s",
-          opacity: isActive ? 1 : 0.4,
-        }}
+        className={`flex min-w-14 min-h-20 items-center justify-center rounded-lg border-2 transition-all duration-150 ${
+          isActive ? "opacity-100" : "opacity-40"
+        } ${
+          isOver
+            ? "border-red-500 bg-red-500/10"
+            : "border-border bg-muted/30"
+        }`}
       >
         {isActive && discardPile.length === 0 && !isOver && (
-          <span style={{ fontSize: 11, color: "#888" }}>Drop to discard</span>
+          <span className="text-muted-foreground text-[11px]">Drop to discard</span>
         )}
         {topCard && (
           <AnimatedCard
@@ -58,9 +48,7 @@ export default function DiscardZone({ discardPile, wildRank, isActive }: Discard
         )}
       </div>
       {discardPile.length > 1 && (
-        <p style={{ fontSize: 10, color: "#888", marginTop: 2 }}>
-          +{discardPile.length - 1} more
-        </p>
+        <p className="text-muted-foreground mt-0.5 text-[10px]">+{discardPile.length - 1} more</p>
       )}
     </div>
   );

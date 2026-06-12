@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import AnimatedCard from "./AnimatedCard";
-import { canMeldCards, RANK_NAMES } from "../lib/card-utils";
+import { canMeldCards } from "../lib/card-utils";
 
 interface CardData {
   rank: number;
@@ -30,20 +30,9 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
     return (
       <div
         ref={setNodeRef}
-        style={{
-          minWidth: 56,
-          minHeight: 80,
-          border: "2px dashed #999",
-          borderRadius: 8,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: isOver ? "rgba(76, 175, 80, 0.15)" : "rgba(0,0,0,0.03)",
-          transition: "background 0.15s",
-          fontSize: 11,
-          color: "#888",
-          padding: "0 8px",
-        }}
+        className={`flex min-w-14 min-h-20 items-center justify-center rounded-lg border-2 border-dashed px-2 text-[11px] text-muted-foreground transition-all duration-150 ${
+          isOver ? "border-green-500 bg-green-500/15" : "border-border bg-muted/30"
+        }`}
       >
         Drop cards here to meld
       </div>
@@ -53,16 +42,11 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
   return (
     <div
       ref={setNodeRef}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "6px 10px",
-        borderRadius: 8,
-        border: `2px solid ${valid ? "#4caf50" : isOver ? "#4caf50" : "#ccc"}`,
-        background: isOver ? "rgba(76, 175, 80, 0.12)" : valid ? "rgba(76, 175, 80, 0.06)" : "rgba(0,0,0,0.03)",
-        transition: "background 0.15s, border-color 0.15s",
-      }}
+      className={`flex items-center gap-1 rounded-lg border-2 px-2.5 py-1.5 transition-all duration-150 ${
+        valid || isOver
+          ? "border-green-500 bg-green-500/10"
+          : "border-border bg-muted/30"
+      }`}
     >
       {cards.map((card, i) => (
         <AnimatedCard
@@ -76,34 +60,14 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
       {valid && (
         <button
           onClick={onPlay}
-          style={{
-            marginLeft: 8,
-            padding: "6px 14px",
-            background: "#4caf50",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            fontWeight: "bold",
-            fontSize: 13,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
+          className="ml-2 cursor-pointer rounded-md bg-green-600 px-3.5 py-1.5 text-xs font-bold text-white whitespace-nowrap hover:bg-green-700"
         >
           Play Meld
         </button>
       )}
       <button
         onClick={onClear}
-        style={{
-          marginLeft: 4,
-          padding: "6px 10px",
-          background: "transparent",
-          color: "#888",
-          border: "1px solid #ccc",
-          borderRadius: 6,
-          fontSize: 12,
-          cursor: "pointer",
-        }}
+        className="text-muted-foreground ml-1 cursor-pointer rounded-md border border-border bg-transparent px-2.5 py-1.5 text-xs hover:bg-muted"
         title="Clear staging"
       >
         ✕

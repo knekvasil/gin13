@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
-import { SUIT_SYMBOLS, SUIT_COLORS, RANK_NAMES } from "../lib/card-utils";
+import { SUIT_SYMBOLS, RANK_NAMES } from "../lib/card-utils";
+import { cn } from "../lib/utils";
 
 interface AnimatedCardProps {
   rank?: number;
@@ -17,6 +18,50 @@ interface AnimatedCardProps {
   style?: React.CSSProperties;
 }
 
+function FaceDownCard({
+  small,
+  selected,
+  onClick,
+  disabled,
+  isDragging,
+  layoutId,
+  style,
+}: {
+  small?: boolean;
+  selected?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+  isDragging: boolean;
+  layoutId?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <motion.div
+      layoutId={layoutId}
+      onClick={onClick}
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center rounded-md border-2 border-border",
+        small ? "w-10 h-14" : "w-14 h-20",
+        "bg-blue-900",
+        disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
+        selected && "ring-2 ring-yellow-400",
+        onClick && "cursor-pointer",
+        onClick && !disabled && "hover:ring-2 hover:ring-primary",
+      )}
+      style={style}
+      whileHover={onClick && !disabled ? { y: -4 } : undefined}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+    >
+      <span className={cn("text-white font-bold", small ? "text-base" : "text-2xl")}>?</span>
+    </motion.div>
+  );
+}
+
+const suitTextColor = (suit: number | undefined) => {
+  if (suit === undefined) return "";
+  return suit === 0 || suit === 3 ? "text-foreground" : "text-red-500 dark:text-red-400";
+};
+
 export default function AnimatedCard({
   rank,
   suit,
@@ -31,8 +76,6 @@ export default function AnimatedCard({
   dragData,
   style,
 }: AnimatedCardProps) {
-  const w = small ? 40 : 56;
-  const h = small ? 56 : 80;
   const isClickable = !!onClick;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -41,96 +84,55 @@ export default function AnimatedCard({
     disabled: !dragId,
   });
 
-  const cursor = dragId ? "grab" : isClickable ? "pointer" : "default";
-
   if (faceDown) {
     return (
-      <motion.div
-        layoutId={layoutId}
+      <FaceDownCard
+        small={small}
+        selected={selected}
         onClick={onClick}
-        style={{
-          width: w,
-          height: h,
-          border: "2px solid #333",
-          borderRadius: 6,
-          background: "repeating-linear-gradient(45deg, #1a3a8a, #1a3a8a 6px, #2244aa 6px, #2244aa 12px)",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: isClickable ? "pointer" : "default",
-          opacity: disabled ? 0.5 : isDragging ? 0 : 1,
-          position: "relative",
-          flexShrink: 0,
-          ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
-          ...style,
-        }}
-        whileHover={isClickable && !disabled ? { boxShadow: "0 0 0 3px #4a90d9" } : undefined}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-      >
-        <span style={{ color: "#fff", fontSize: small ? 16 : 24 }}>?</span>
-      </motion.div>
+        disabled={disabled}
+        isDragging={isDragging}
+        layoutId={layoutId}
+        style={style}
+      />
     );
   }
 
   const suitSymbol = suit !== undefined ? SUIT_SYMBOLS[suit] ?? "?" : "?";
-  const color = suit !== undefined ? SUIT_COLORS[suit] ?? "#000" : "#000";
   const rankName = rank !== undefined ? RANK_NAMES[rank] ?? "?" : "?";
 
-  const cardStyle: React.CSSProperties = {
-    width: w,
-    height: h,
-    border: `2px solid ${selected ? "#ff0" : "#999"}`,
-    borderRadius: 6,
-    background: wild ? "#ffe" : "#fff",
-    display: "inline-flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor,
-    opacity: disabled ? 0.5 : isDragging ? 0 : 1,
-    position: "relative",
-    flexShrink: 0,
-    ...(selected ? { boxShadow: "0 0 0 3px #ff0" } : {}),
-    ...style,
-  };
+  const isDraggable = !!dragId;
 
   return (
     <motion.div
-      ref={dragId ? setNodeRef : undefined}
-      {...(dragId ? { ...attributes, ...listeners } : {})}
+      ref={isDraggable ? setNodeRef : undefined}
+      {...(isDraggable ? { ...attributes, ...listeners } : {})}
       layoutId={layoutId}
       onClick={onClick}
-      style={cardStyle}
-      whileHover={
-        dragId
-          ? { boxShadow: "0 0 0 3px #4a90d9", y: -4 }
-          : isClickable && !disabled
-          ? { boxShadow: "0 0 0 3px #4a90d9", y: -4 }
-          : undefined
-      }
+      className={cn(
+        "relative inline-flex shrink-0 flex-col items-center justify-center rounded-md border-2",
+        small ? "w-10 h-14" : "w-14 h-20",
+        wild ? "bg-amber-50 dark:bg-amber-950/30" : "bg-card",
+        selected
+          ? "border-yellow-400 ring-2 ring-yellow-400"
+          : "border-border",
+        disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
+        (isClickable || isDraggable) && "cursor-grab active:cursor-grabbing",
+        (isClickable || isDraggable) && !disabled && "hover:ring-2 hover:ring-primary",
+      )}
+      style={style}
+      whileHover={!disabled ? { y: -4 } : undefined}
+      whileTap={!disabled ? { cursor: "grabbing" } : undefined}
       transition={{ type: "spring", stiffness: 500, damping: 30 }}
     >
-      <span style={{ color, fontSize: small ? 14 : 18, fontWeight: "bold", lineHeight: 1 }}>
+      <span className={cn("font-bold leading-none", suitTextColor(suit), small ? "text-sm" : "text-lg")}>
         {rankName}
       </span>
-      <span style={{ color, fontSize: small ? 16 : 22, lineHeight: 1 }}>
+      <span className={cn("leading-none", suitTextColor(suit), small ? "text-base" : "text-xl")}>
         {suitSymbol}
       </span>
       {wild && (
-        <span
-          style={{
-            position: "absolute",
-            top: small ? -4 : -6,
-            right: small ? -4 : -6,
-            background: "#f80",
-            color: "#fff",
-            borderRadius: 8,
-            fontSize: small ? 8 : 10,
-            padding: "1px 4px",
-            fontWeight: "bold",
-            lineHeight: small ? "12px" : "16px",
-          }}
-        >
+        <span className="absolute -top-1 -right-1 rounded-full bg-orange-500 px-1 py-0.5 text-[8px] font-bold leading-none text-white">
           W
         </span>
       )}

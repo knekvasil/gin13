@@ -13,19 +13,10 @@ function WildCardSlot({ meldGroupId, wildIndex, children }: { meldGroupId: strin
     data: { type: "wild-card", meldGroupId },
   });
   return (
-    <div ref={setNodeRef} style={{ position: "relative" }}>
+    <div ref={setNodeRef} className="relative">
       {children}
       {isOver && (
-        <div
-          style={{
-            position: "absolute",
-            inset: -2,
-            borderRadius: 6,
-            border: "2px dashed #f80",
-            background: "rgba(255, 136, 0, 0.15)",
-            pointerEvents: "none",
-          }}
-        />
+        <div className="pointer-events-none absolute inset-0 rounded-md border-2 border-dashed border-orange-500 bg-orange-500/15" />
       )}
     </div>
   );
@@ -57,15 +48,9 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
   return (
     <div
       ref={setNodeRef}
-      style={{
-        display: "flex",
-        gap: 2,
-        padding: 4,
-        borderRadius: 6,
-        outline: isOver ? "2px solid #4caf50" : undefined,
-        background: isOver ? "rgba(76, 175, 80, 0.1)" : undefined,
-        transition: "background 0.15s",
-      }}
+      className={`flex gap-0.5 rounded-md p-1 transition-colors duration-150 ${
+        isOver ? "bg-green-500/10 outline-2 outline-green-500" : ""
+      }`}
     >
       {sorted.map((card, ci) => {
         const isWild = card.rank === wildRank;
