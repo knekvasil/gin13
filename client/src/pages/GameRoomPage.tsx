@@ -21,8 +21,6 @@ import {
   CardTitle,
 } from "../components/ui/card";
 
-type InteractionMode = "none" | "adding" | "swapping";
-
 interface CardData {
   rank: number;
   suit: number;
@@ -120,8 +118,6 @@ export default function GameRoomPage() {
   const [mySessionId, setMySessionId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [meldError, setMeldError] = useState<string | null>(null);
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>("none");
-  const [addCardIndex, setAddCardIndex] = useState<number | null>(null);
   const [selectedCardIndices, setSelectedCardIndices] = useState<number[]>([]);
   const cleanupRef = useRef<() => void>(() => {});
   const [timerPct, setTimerPct] = useState(100);
@@ -302,25 +298,6 @@ export default function GameRoomPage() {
     room.send("meld", { cardIndices: indices });
     setStagedCards([]);
     setSelectedCardIndices([]);
-  };
-
-  const handlePassMeld = () => {
-    if (!canMeld || !room) return;
-    room.send("pass_meld");
-    setSelectedCardIndices([]);
-    setStagedCards([]);
-  };
-
-  const handleCancelMode = () => {
-    setInteractionMode("none");
-    setAddCardIndex(null);
-    setMeldError(null);
-  };
-
-  const handleEnterAddMode = () => {
-    setInteractionMode("adding");
-    setAddCardIndex(null);
-    setMeldError(null);
   };
 
   const handleClearStaging = () => {
@@ -542,24 +519,6 @@ export default function GameRoomPage() {
                 <Button size="lg" onClick={() => room?.send("start_game")}>
                   Start Game
                 </Button>
-              )}
-
-              {canMeld && interactionMode === "none" && stagedCards.length === 0 && (
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={handlePassMeld}>Pass Meld</Button>
-                  {canAddToMeld && (
-                    <Button variant="secondary" onClick={handleEnterAddMode}>Add to Meld</Button>
-                  )}
-                </div>
-              )}
-
-              {interactionMode === "adding" && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs italic">
-                    Click a meld group to add card
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={handleCancelMode}>Cancel</Button>
-                </div>
               )}
 
               {meldError && <p className="text-destructive m-0 text-xs">{meldError}</p>}
