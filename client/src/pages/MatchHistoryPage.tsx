@@ -1,6 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useMatchHistory } from "../stats/hooks";
+import { Button } from "../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 
 export default function MatchHistoryPage() {
   const navigate = useNavigate();
@@ -16,37 +25,45 @@ export default function MatchHistoryPage() {
   }
 
   return (
-    <div>
-      <h1>Match History</h1>
-      <button onClick={() => navigate("/")}>Back to Lobby</button>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+          Match History
+        </h1>
+        <Button variant="outline" onClick={() => navigate("/")}>
+          Back to Lobby
+        </Button>
+      </div>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
 
-      {error && <p>Error loading match history</p>}
+      {error && <p className="text-destructive text-sm">Error loading match history</p>}
 
-      {matches && matches.length === 0 && <p>No completed matches yet.</p>}
+      {matches && matches.length === 0 && (
+        <p className="text-muted-foreground text-sm">No completed matches yet.</p>
+      )}
 
       {matches && matches.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Rank</th>
-              <th>Score</th>
-              <th>Rounds</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Rank</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Rounds</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {matches.map((m) => (
-              <tr key={m.matchId}>
-                <td>{new Date(m.date).toLocaleDateString()}</td>
-                <td>{rankLabel(m.finalRank)}</td>
-                <td>{m.totalScore}</td>
-                <td>{m.totalRounds}</td>
-              </tr>
+              <TableRow key={m.matchId}>
+                <TableCell>{new Date(m.date).toLocaleDateString()}</TableCell>
+                <TableCell>{rankLabel(m.finalRank)}</TableCell>
+                <TableCell>{m.totalScore}</TableCell>
+                <TableCell>{m.totalRounds}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );
