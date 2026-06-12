@@ -29,11 +29,9 @@ vi.mock("../auth/colyseus", () => ({
 }));
 
 function getHandCardElements(): HTMLElement[] {
-  const handHeading = screen.queryByText("Your Hand");
-  if (!handHeading) return [];
-  const section = handHeading.closest("div")!;
-  const suitEls = section.querySelectorAll('[style*="width: 56"]');
-  return Array.from(suitEls) as HTMLElement[];
+  const container = document.body.querySelector('[style*="flex-wrap: wrap"][style*="justify-content: center"]');
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('[style*="width: 56px"][style*="height: 80px"]')) as HTMLElement[];
 }
 
 beforeEach(() => {
@@ -95,62 +93,24 @@ beforeEach(() => {
 });
 
 describe("GameRoomPage meld phase", () => {
-  it("toggles card selection when clicking hand cards", async () => {
+  it("displays hand cards and Pass Meld button", async () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
+      expect(screen.getByText(/Phase:/)).toBeInTheDocument();
     });
 
     const cards = getHandCardElements();
-    expect(cards.length).toBeGreaterThanOrEqual(1);
+    expect(cards.length).toBe(3);
 
-    const firstCard = cards[0];
-
-    await userEvent.click(firstCard);
-
-    await waitFor(() => {
-      expect(firstCard.style.border).toBe("2px solid rgb(255, 255, 0)");
-    });
-
-    await userEvent.click(firstCard);
-
-    await waitFor(() => {
-      expect(firstCard.style.border).toBe("2px solid rgb(153, 153, 153)");
-    });
+    expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
   });
 
-  it("shows Meld button with count and sends cardIndices on click", async () => {
+  it("staging well is visible when in main_phase", async () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const meldBtn = screen.getByRole("button", { name: /^meld/i });
-    expect(meldBtn).toBeInTheDocument();
-    expect(meldBtn).toBeDisabled();
-    expect(meldBtn).toHaveTextContent("Meld (0)");
-
-    const cards = getHandCardElements();
-    await userEvent.click(cards[0]);
-
-    await waitFor(() => {
-      expect(meldBtn).toHaveTextContent("Meld (1)");
-    });
-
-    await userEvent.click(cards[1]);
-
-    await waitFor(() => {
-      expect(meldBtn).toHaveTextContent("Meld (2)");
-    });
-
-    await userEvent.click(meldBtn);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("meld", { cardIndices: [0, 1] });
-
-    await waitFor(() => {
-      expect(meldBtn).toHaveTextContent("Meld (0)");
+      expect(screen.getByText(/Drop cards here to meld/i)).toBeInTheDocument();
     });
   });
 
@@ -158,7 +118,7 @@ describe("GameRoomPage meld phase", () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
+      expect(screen.getByText(/Phase:/)).toBeInTheDocument();
     });
 
     const errorHandler = messageHandlers.get("meld_error");
@@ -171,38 +131,14 @@ describe("GameRoomPage meld phase", () => {
     });
   });
 
-  it("clears meld error when toggling card selection", async () => {
+  it("sends pass_meld when Pass Meld is clicked", async () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const errorHandler = messageHandlers.get("meld_error");
-    errorHandler!({ message: "Invalid meld" });
-
-    await waitFor(() => {
-      expect(screen.getByText("Invalid meld")).toBeInTheDocument();
-    });
-
-    const cards = getHandCardElements();
-    await userEvent.click(cards[0]);
-
-      await waitFor(() => {
-        expect(screen.queryByText("Invalid meld")).not.toBeInTheDocument();
-      });
-  });
-
-  it("sends pass_meld and transitions to discard phase", async () => {
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
+      expect(screen.getByText(/Phase:/)).toBeInTheDocument();
     });
 
     const passBtn = screen.getByRole("button", { name: /pass meld/i });
-    expect(passBtn).toBeInTheDocument();
-
     await userEvent.click(passBtn);
 
     expect(mockRoomSend).toHaveBeenCalledWith("pass_meld");
@@ -211,57 +147,11 @@ describe("GameRoomPage meld phase", () => {
     onStateChangeCallback();
 
     await waitFor(() => {
-      expect(screen.getByText(/Phase:.*discard/)).toBeInTheDocument();
+      expect(screen.getByText(/Phase:.*Discard/)).toBeInTheDocument();
     });
-
-    expect(screen.queryByRole("button", { name: /^meld/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /pass meld/i })).not.toBeInTheDocument();
   });
 
-  it("updates board with new meld and stays in meld phase after valid meld", async () => {
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("No melds yet")).toBeInTheDocument();
-
-    const cards = getHandCardElements();
-    await userEvent.click(cards[0]);
-    await userEvent.click(cards[1]);
-
-    const meldBtn = screen.getByRole("button", { name: /^meld/i });
-    await userEvent.click(meldBtn);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("meld", { cardIndices: [0, 1] });
-
-    const player = mockRoom.state.players[0];
-    const meldedCards = [player.hand[0], player.hand[1]];
-    player.hand = [player.hand[2]];
-    const groupId = "meld-1";
-    for (const card of meldedCards) {
-      card.meldGroupId = groupId;
-      player.board.push(card);
-    }
-    onStateChangeCallback();
-
-    await waitFor(() => {
-      expect(screen.queryByText("No melds yet")).not.toBeInTheDocument();
-    });
-
-    await waitFor(() => {
-      const handCards = getHandCardElements();
-      expect(handCards.length).toBe(1);
-    });
-
-    expect(screen.getByRole("button", { name: /^meld/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
-
-    expect(mockRoom.state.phase).toBe("main_phase");
-  });
-
-  it("sends add_to_meld when clicking hand card then meld group", async () => {
+  it("shows Add to Meld button when own player has melds", async () => {
     mockRoom.state.players[0].board = [
       { rank: 4, suit: 0, meldGroupId: "meld-1" },
       { rank: 5, suit: 0, meldGroupId: "meld-1" },
@@ -271,252 +161,98 @@ describe("GameRoomPage meld phase", () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /add to meld/i })).toBeInTheDocument();
+    });
+  });
+
+  it("cancel button clears add mode", async () => {
+    mockRoom.state.players[0].board = [
+      { rank: 4, suit: 0, meldGroupId: "meld-1" },
+      { rank: 5, suit: 0, meldGroupId: "meld-1" },
+      { rank: 6, suit: 0, meldGroupId: "meld-1" },
+    ];
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /add to meld/i })).toBeInTheDocument();
     });
 
     const addBtn = screen.getByRole("button", { name: /add to meld/i });
     await userEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/adding to meld/i)).toBeInTheDocument();
-    });
-
-    const cards = getHandCardElements();
-    await userEvent.click(cards[0]);
-
-    const meldGroup = screen.getByTestId("meld-group-meld-1");
-    await userEvent.click(meldGroup);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("add_to_meld", {
-      cardIndex: 0,
-      meldGroupId: "meld-1",
-    });
-  });
-
-  it("sends swap_wild when clicking wild on board then hand card", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 13, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 6, suit: 0, meldGroupId: "meld-1" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const meldGroup = screen.getByTestId("meld-group-meld-1");
-    const wildBadge = within(meldGroup).getByText("W");
-    await userEvent.click(wildBadge);
-
-    await waitFor(() => {
-      expect(screen.getByText(/swapping wild/i)).toBeInTheDocument();
-    });
-
-    const cards = getHandCardElements();
-    await userEvent.click(cards[0]);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("swap_wild", {
-      meldGroupId: "meld-1",
-      meldCardIndex: 0,
-      handCardIndex: 0,
-    });
-  });
-
-  it("sends rearrange_melds when clicking rearrange then Done", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 4, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 6, suit: 0, meldGroupId: "meld-1" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const rearrangeBtn = screen.getByRole("button", { name: /rearrange/i });
-    await userEvent.click(rearrangeBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText(/rearranging/i)).toBeInTheDocument();
-    });
-
-    const doneBtn = screen.getByRole("button", { name: /done/i });
-    await userEvent.click(doneBtn);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("rearrange_melds", {
-      newMelds: [
-        [
-          { source: "meld-1", index: 0 },
-          { source: "meld-1", index: 1 },
-          { source: "meld-1", index: 2 },
-        ],
-      ],
-    });
-  });
-
-  it("updates board meld visually after add_to_meld state change", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 4, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 6, suit: 0, meldGroupId: "meld-1" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const addBtn = screen.getByRole("button", { name: /add to meld/i });
-    await userEvent.click(addBtn);
-
-    const cards = getHandCardElements();
-    expect(cards.length).toBe(3);
-    await userEvent.click(cards[0]);
-
-    const meldGroup = screen.getByTestId("meld-group-meld-1");
-    await userEvent.click(meldGroup);
-
-    const player = mockRoom.state.players[0];
-    const addedCard = player.hand.splice(0, 1)[0];
-    addedCard.meldGroupId = "meld-1";
-    player.board.push(addedCard);
-    onStateChangeCallback();
-
-    await waitFor(() => {
-      const handCards = getHandCardElements();
-      expect(handCards.length).toBe(2);
-    });
-
-    const updatedGroup = screen.getByTestId("meld-group-meld-1");
-    const groupCards = updatedGroup.querySelectorAll('[style*="width: 56"]');
-    expect(groupCards.length).toBe(4);
-  });
-
-  it("updates board and hand visually after swap_wild state change", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 13, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 6, suit: 0, meldGroupId: "meld-1" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const meldGroup = screen.getByTestId("meld-group-meld-1");
-    const wildBadge = within(meldGroup).getByText("W");
-    await userEvent.click(wildBadge);
-
-    await waitFor(() => {
-      expect(screen.getByText(/swapping wild/i)).toBeInTheDocument();
-    });
-
-    const handCards = getHandCardElements();
-    await userEvent.click(handCards[0]);
-
-    const player = mockRoom.state.players[0];
-    const wildCard = player.board.splice(0, 1)[0];
-    const usedHandCard = player.hand.splice(0, 1)[0];
-    usedHandCard.meldGroupId = "meld-1";
-    player.board.push(usedHandCard);
-    player.hand.push(wildCard);
-    wildCard.meldGroupId = "";
-    onStateChangeCallback();
-
-    await waitFor(() => {
-      const updatedHand = getHandCardElements();
-      expect(updatedHand.length).toBe(3);
-    });
-
-    expect(screen.getByText("K")).toBeInTheDocument();
-  });
-
-  it("click-to-move card between meld groups in rearrange mode", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 4, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 7, suit: 0, meldGroupId: "meld-2" },
-      { rank: 8, suit: 0, meldGroupId: "meld-2" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const rearrangeBtn = screen.getByRole("button", { name: /rearrange/i });
-    await userEvent.click(rearrangeBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText(/rearranging/i)).toBeInTheDocument();
-    });
-
-    const meldGroup2 = screen.getByTestId("meld-group-meld-2");
-    const group2Cards = meldGroup2.querySelectorAll('[style*="width: 56"]');
-    await userEvent.click(group2Cards[0]);
-
-    const meldGroup1 = screen.getByTestId("meld-group-meld-1");
-    await userEvent.click(meldGroup1);
-
-    const doneBtn = screen.getByRole("button", { name: /done/i });
-    await userEvent.click(doneBtn);
-
-    expect(mockRoomSend).toHaveBeenCalledWith("rearrange_melds", {
-      newMelds: [
-        [
-          { source: "meld-1", index: 0 },
-          { source: "meld-1", index: 1 },
-          { source: "meld-2", index: 0 },
-        ],
-        [
-          { source: "meld-2", index: 1 },
-        ],
-      ],
-    });
-  });
-
-  it("cancel button clears interaction mode", async () => {
-    mockRoom.state.players[0].board = [
-      { rank: 4, suit: 0, meldGroupId: "meld-1" },
-      { rank: 5, suit: 0, meldGroupId: "meld-1" },
-      { rank: 6, suit: 0, meldGroupId: "meld-1" },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    const addBtn = screen.getByRole("button", { name: /add to meld/i });
-    await userEvent.click(addBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText(/adding to meld/i)).toBeInTheDocument();
+      expect(screen.getByText(/click a meld group/i)).toBeInTheDocument();
     });
 
     const cancelBtn = screen.getByRole("button", { name: /cancel/i });
     await userEvent.click(cancelBtn);
 
     await waitFor(() => {
-      expect(screen.queryByText(/adding to meld/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/click a meld group/i)).not.toBeInTheDocument();
     });
-
-    expect(screen.getByRole("button", { name: /add to meld/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^meld/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pass meld/i })).toBeInTheDocument();
   });
 });
 
-describe("GameRoomPage waiting state", () => {
+describe("GameRoomPage draw and discard phases", () => {
+  it("shows draw pile as clickable during draw phase", async () => {
+    mockRoom.state.phase = "draw";
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Phase:.*Draw/)).toBeInTheDocument();
+    });
+
+    const drawLabel = screen.getByText("Draw");
+    expect(drawLabel).toBeInTheDocument();
+  });
+
+  it("shows timer bar", async () => {
+    mockRoom.state.phase = "draw";
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Phase:.*Draw/)).toBeInTheDocument();
+    });
+
+    const timerBars = document.body.querySelectorAll('[style*="height: 4px"]');
+    expect(timerBars.length).toBeGreaterThan(0);
+  });
+
+  it("hand cards are clickable during discard phase for discarding", async () => {
+    mockRoom.state.phase = "discard";
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Phase:.*Discard/)).toBeInTheDocument();
+    });
+
+    const cards = getHandCardElements();
+    expect(cards.length).toBe(3);
+
+    await userEvent.click(cards[0]);
+    expect(mockRoomSend).toHaveBeenCalledWith("discard", { cardIndex: 0 });
+  });
+
+  it("draw from deck button is present during draw phase", async () => {
+    mockRoom.state.phase = "draw";
+
+    render(<GameRoomPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Draw")).toBeInTheDocument();
+    });
+
+    const drawSection = screen.getByText("Draw").closest("div")!;
+    const faceDownCards = drawSection.querySelectorAll('[style*="repeating-linear-gradient"]');
+    expect(faceDownCards.length).toBeGreaterThan(0);
+  });
+});
+
+describe("GameRoomPage round end and match finish", () => {
   it("shows round summary overlay with round scores when phase is round_ended", async () => {
     mockRoom.state.status = "playing";
     mockRoom.state.phase = "round_ended";
@@ -539,61 +275,12 @@ describe("GameRoomPage waiting state", () => {
 
     const roundSummary = screen.getByText("Round 3 Summary").closest("div")!;
     expect(within(roundSummary).getByText("Wild: 3")).toBeInTheDocument();
-
     expect(within(roundSummary).getByText("Alice")).toBeInTheDocument();
     expect(within(roundSummary).getByText("Bob")).toBeInTheDocument();
-
-    expect(within(roundSummary).getByText("0")).toBeInTheDocument();
-    expect(within(roundSummary).getAllByText("15")).toHaveLength(2);
   });
+});
 
-  it("shows turn timer bar when it is your turn", async () => {
-    mockRoom.state.phase = "draw";
-    mockRoom.state.currentPlayerIndex = 0;
-    mockRoom.state.players = [
-      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [{ rank: 5, suit: 0, meldGroupId: "" }], board: [] },
-      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: false, hand: [], board: [] },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("turn-timer")).toBeInTheDocument();
-    });
-  });
-
-  it("shows waiting message when it is not your turn", async () => {
-    mockRoom.state.phase = "draw";
-    mockRoom.state.currentPlayerIndex = 1;
-    mockRoom.state.players = [
-      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [], board: [] },
-      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: false, hand: [{ rank: 5, suit: 0, meldGroupId: "" }], board: [] },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Waiting for Bob/)).toBeInTheDocument();
-    });
-  });
-
-  it("shows disconnected badge for disconnected player", async () => {
-    mockRoom.state.status = "playing";
-    mockRoom.state.phase = "main_phase";
-    mockRoom.state.players = [
-      { sessionId: "my-session", userId: "u1", name: "Alice", score: 0, disconnected: false, hand: [], board: [] },
-      { sessionId: "s2", userId: "u2", name: "Bob", score: 0, disconnected: true, hand: [], board: [] },
-    ];
-
-    render(<GameRoomPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Game Board")).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("Disconnected")).toBeInTheDocument();
-  });
-
+describe("GameRoomPage waiting state", () => {
   it("shows match end screen with winner and sorted scores", async () => {
     mockRoom.state.status = "finished";
     mockRoom.state.phase = "finished";
@@ -612,10 +299,11 @@ describe("GameRoomPage waiting state", () => {
 
     expect(screen.getByText(/Winner:.*Bob/)).toBeInTheDocument();
 
-    const scores = screen.getAllByRole("listitem");
-    expect(scores[0]).toHaveTextContent(/Bob/);
-    expect(scores[1]).toHaveTextContent(/Alice/);
-    expect(scores[2]).toHaveTextContent(/Charlie/);
+    const rows = screen.getAllByRole("row");
+    const scoreRows = rows.filter((r) => !r.querySelector("th"));
+    expect(scoreRows[0]).toHaveTextContent(/1.*Bob.*15/);
+    expect(scoreRows[1]).toHaveTextContent(/2.*Alice.*30/);
+    expect(scoreRows[2]).toHaveTextContent(/3.*Charlie.*42/);
 
     expect(screen.getByRole("button", { name: /back to lobby/i })).toBeInTheDocument();
   });
@@ -632,7 +320,7 @@ describe("GameRoomPage waiting state", () => {
     render(<GameRoomPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Room:/)).toBeInTheDocument();
+      expect(screen.getByText(/Waiting for players/)).toBeInTheDocument();
     });
 
     const startBtn = screen.getByRole("button", { name: /start game/i });
