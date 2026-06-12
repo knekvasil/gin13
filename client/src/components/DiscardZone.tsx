@@ -11,9 +11,10 @@ interface DiscardZoneProps {
   discardPile: CardData[];
   wildRank: number;
   isActive: boolean;
+  onClick?: () => void;
 }
 
-export default function DiscardZone({ discardPile, wildRank, isActive }: DiscardZoneProps) {
+export default function DiscardZone({ discardPile, wildRank, isActive, onClick }: DiscardZoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: "discard-pile",
     data: { type: "discard" },
@@ -27,8 +28,11 @@ export default function DiscardZone({ discardPile, wildRank, isActive }: Discard
       <p className="text-muted-foreground mb-1 text-xs font-semibold">Discard</p>
       <div
         ref={setNodeRef}
+        onClick={onClick}
         className={`flex min-w-14 min-h-20 items-center justify-center rounded-lg border-2 transition-all duration-150 ${
           isActive ? "opacity-100" : "opacity-40"
+        } ${
+          isActive && onClick ? "cursor-pointer" : ""
         } ${
           isOver
             ? "border-red-500 bg-red-500/10"
