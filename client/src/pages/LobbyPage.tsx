@@ -406,7 +406,7 @@ export default function LobbyPage() {
 							</button>
 						</div>
 					</CardHeader>
-					<CardContent className="px-3 pt-0 relative flex-1">
+					<CardContent className="px-3 pt-0 relative flex-1 min-h-[140px]">
 						{friendTab === "friends" ? (
 							<>
 								{friendList.length === 0 && !showAddFriend ? (
@@ -608,7 +608,7 @@ export default function LobbyPage() {
 					<CardHeader className="px-4 pb-0">
 						<CardTitle className="text-sm">Open Rooms</CardTitle>
 					</CardHeader>
-					<CardContent className="px-3 pt-0 relative flex-1">
+					<CardContent className="px-3 pt-0 relative flex-1 min-h-[140px]">
 						{rooms.length === 0 ? (
 							<div className="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-3 text-xs">
 								<Swords className="size-8 opacity-40" />
