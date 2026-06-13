@@ -4,7 +4,6 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
 } from "recharts";
 import { Button } from "../components/ui/button";
 import type { MatchDetail } from "../stats/api";
@@ -164,7 +163,6 @@ export default function RoundTransitionOverlay({
                     tickLine={false}
                   />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
                   {sorted.map((ps, i) => {
                     const data = computeCumulative(roundScores, ps.userId, totalRounds);
                     return (
@@ -178,6 +176,7 @@ export default function RoundTransitionOverlay({
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
+                        activeDot={false}
                       />
                     );
                   })}
@@ -200,7 +199,6 @@ export default function RoundTransitionOverlay({
                     tickLine={false}
                   />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
                   {sorted.map((ps, i) => {
                     const data = roundNumbers.map((rn) => {
                       const pr = playedRound(rn);
@@ -218,6 +216,7 @@ export default function RoundTransitionOverlay({
                         strokeWidth={2}
                         dot={{ r: 2 }}
                         connectNulls={false}
+                        activeDot={false}
                       />
                     );
                   })}

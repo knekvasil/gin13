@@ -4,7 +4,6 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
 } from "recharts";
 import type { MatchDetail, MatchDetailPlayer, RoundScoreEntry } from "../stats/api";
 
@@ -140,7 +139,6 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12 }} />
                 {players.map((p, i) => {
                   const data = computeCumulative(roundScores, p.userId);
                   return (
@@ -154,6 +152,7 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                       strokeWidth={2}
                       dot={false}
                       connectNulls={false}
+                      activeDot={false}
                     />
                   );
                 })}
@@ -176,7 +175,6 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12 }} />
                 {players.map((p, i) => {
                   const data = roundScores.map((rs) => {
                     const entry = rs.scores.find((s) => s.userId === p.userId);
@@ -193,6 +191,7 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                       strokeWidth={2}
                       dot={{ r: 2 }}
                       connectNulls={false}
+                      activeDot={false}
                     />
                   );
                 })}

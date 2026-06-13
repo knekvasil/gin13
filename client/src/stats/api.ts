@@ -37,7 +37,13 @@ export interface PlayerStats {
   maxOpponentPointsInWonRound: number | null;
   biggestGameWin: number | null;
   biggestGameLoss: number | null;
+  biggestWinDiff: number | null;
+  totalRoundsPlayed: number;
+  peakElo: number;
+  percentiles: Record<string, number>;
   scoreHistory: { matchId: string; date: string; score: number }[];
+  eloHistory: { date: string; elo: number }[];
+  rankHistory: { date: string; rank: number }[];
   rankDistribution: { rank: number; count: number }[];
   longestGameWinStreak: number;
   currentGameWinStreak: number;

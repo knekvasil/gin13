@@ -82,6 +82,38 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
       select: { rank: true, score: true, endedAt: true },
     });
 
+    const matchPlayers = await prisma.matchPlayer.findMany({
+      where: { userId, match: { status: "FINISHED" } },
+      include: { match: { select: { endedAt: true, totalRounds: true } } },
+      orderBy: { match: { endedAt: "asc" } },
+    });
+
+    let runningElo = 1000;
+    let peakElo = 1000;
+    let totalRoundsPlayed = 0;
+    const eloHistory: { date: string; elo: number }[] = [];
+    for (const mp of matchPlayers) {
+      if (!mp.match.endedAt) continue;
+      runningElo += mp.eloDelta;
+      if (runningElo > peakElo) peakElo = runningElo;
+      totalRoundsPlayed += mp.match.totalRounds;
+      eloHistory.push({
+        date: mp.match.endedAt.toISOString().slice(0, 10),
+        elo: runningElo,
+      });
+    }
+
+    const resultsAsc = [...results].reverse();
+    const rankHistory: { date: string; rank: number }[] = [];
+    for (const r of resultsAsc) {
+      if (r.rank != null) {
+        rankHistory.push({
+          date: r.endedAt.toISOString().slice(0, 10),
+          rank: r.rank,
+        });
+      }
+    }
+
     if (!stats) {
       res.json({
         elo: 1000,
@@ -94,14 +126,20 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
         biggestRoundLoss: null,
         mostRoundsWonInAGame: null,
         maxOpponentPointsInWonRound: null,
-        biggestGameWin: null,
-        biggestGameLoss: null,
-        scoreHistory: [],
-        rankDistribution: [],
-        longestGameWinStreak: 0,
-        longestRoundWinStreak: 0,
-        currentGameWinStreak: 0,
-        currentForm: [],
+      biggestGameWin: null,
+      biggestGameLoss: null,
+      biggestWinDiff: null,
+      totalRoundsPlayed: 0,
+      peakElo: 1000,
+      percentiles: {},
+      scoreHistory: [],
+      eloHistory: [],
+      rankHistory: [],
+      rankDistribution: [],
+      longestGameWinStreak: 0,
+      longestRoundWinStreak: 0,
+      currentGameWinStreak: 0,
+      currentForm: [],
       });
       return;
     }
@@ -146,6 +184,27 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
       score: r.score,
     }));
 
+    const allStats = (await prisma.playerStats.findMany()) as any[];
+    function pct(values: number[], playerVal: number, higherIsBetter: boolean): number {
+      if (values.length === 0) return 50;
+      const sorted = [...values].sort((a, b) => higherIsBetter ? a - b : b - a);
+      const idx = sorted.findIndex((v) => higherIsBetter ? v >= playerVal : v <= playerVal);
+      return Math.round(((idx === -1 ? values.length - 1 : idx) / (values.length - 1)) * 100);
+    }
+
+    const winRates = allStats.map((s: any) => s.totalMatches > 0 ? Math.round((s.wins / s.totalMatches) * 100) : 0);
+
+    const percentiles: Record<string, number> = {
+      elo: pct(allStats.map((s: any) => s.elo), stats.elo, true),
+      totalMatches: pct(allStats.map((s: any) => s.totalMatches), stats.totalMatches, true),
+      winRate: pct(winRates, winRate, true),
+      biggestWinDiff: pct(allStats.map((s: any) => s.biggestWinDiff ?? 0), stats.biggestWinDiff ?? 0, true),
+      biggestGameLoss: pct(allStats.map((s: any) => s.biggestGameLoss ?? 0), stats.biggestGameLoss ?? 0, false),
+      biggestRoundLoss: pct(allStats.map((s: any) => s.biggestRoundLoss ?? 0), stats.biggestRoundLoss ?? 0, false),
+      mostRoundsWonInAGame: pct(allStats.map((s: any) => s.mostRoundsWonInAGame ?? 0), stats.mostRoundsWonInAGame ?? 0, true),
+      longestGameWinStreak: pct(allStats.map((s: any) => s.longestGameWinStreak), stats.longestGameWinStreak, true),
+    };
+
     res.json({
       elo: stats.elo,
       totalMatches: stats.totalMatches,
@@ -159,7 +218,13 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
       maxOpponentPointsInWonRound: stats.maxOpponentPointsInWonRound,
       biggestGameWin: stats.biggestGameWin,
       biggestGameLoss: stats.biggestGameLoss,
+      biggestWinDiff: stats.biggestWinDiff,
+      totalRoundsPlayed,
+      peakElo,
+      percentiles,
       scoreHistory,
+      eloHistory,
+      rankHistory,
       rankDistribution,
       longestGameWinStreak,
       currentGameWinStreak,

@@ -4,7 +4,6 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
-  Tooltip,
 } from "recharts";
 import {
   Sheet,
@@ -165,7 +164,6 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                     tickLine={false}
                   />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
                   {players.map((p, i) => {
                     const data = computeCumulative(roundScores, p.userId, totalRounds);
                     return (
@@ -179,6 +177,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
+                        activeDot={false}
                       />
                     );
                   })}
@@ -203,7 +202,6 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                     tickLine={false}
                   />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
                   {players.map((p, i) => {
                     const data = roundNumbers.map((rn) => {
                       const pr = playedRound(rn);
@@ -221,6 +219,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                         strokeWidth={2}
                         dot={{ r: 2 }}
                         connectNulls={false}
+                        activeDot={false}
                       />
                     );
                   })}

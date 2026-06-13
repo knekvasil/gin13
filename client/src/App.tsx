@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { ThemeProvider } from "./components/theme-provider";
+import { TooltipProvider } from "./components/ui/tooltip";
 import AppLayout from "./components/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -34,6 +35,7 @@ export default function App() {
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
+          <TooltipProvider>
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<PublicRoute><NonGameLayout><LoginPage /></NonGameLayout></PublicRoute>} />
@@ -45,6 +47,7 @@ export default function App() {
               <Route path="/match/:matchId" element={<ProtectedRoute><NonGameLayout><MatchDetailPage /></NonGameLayout></ProtectedRoute>} />
             </Routes>
           </AuthProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </BrowserRouter>

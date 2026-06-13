@@ -245,6 +245,7 @@ export class GameRoom extends Room<GameState> {
 
     const sortedPlayers = [...this.state.players].sort((a: any, b: any) => a.score - b.score);
     const rankedPlayers = sortedPlayers.map((p: any, i: number) => ({ player: p, rank: i + 1 }));
+    const winDiff = sortedPlayers.length >= 2 ? (sortedPlayers[1] as any).score - (sortedPlayers[0] as any).score : 0;
 
     const userIds = rankedPlayers.map((rp: any) => rp.player.userId);
     const existingStats = await prisma.playerStats.findMany({
@@ -299,6 +300,7 @@ export class GameRoom extends Room<GameState> {
           maxOpponentPointsInWonRound: maxOpponentPoints,
           biggestGameWin: isWin ? p.score : null,
           biggestGameLoss: !isWin ? p.score : null,
+          biggestWinDiff: isWin ? winDiff : null,
         },
         update: {
           elo: { increment: eloDelta },
@@ -320,6 +322,9 @@ export class GameRoom extends Room<GameState> {
             : undefined,
           biggestGameLoss: !isWin && (existing?.biggestGameLoss == null || p.score > existing.biggestGameLoss)
             ? { set: p.score }
+            : undefined,
+          biggestWinDiff: isWin && (existing?.biggestWinDiff == null || winDiff > existing.biggestWinDiff)
+            ? { set: winDiff }
             : undefined,
         },
       });
