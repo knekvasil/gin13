@@ -29,7 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Alert } from "../components/ui/alert";
+import { toast } from "sonner";
 import ScoreboardSheet from "../components/ScoreboardSheet";
 
 interface CardData {
@@ -234,6 +234,7 @@ export default function GameRoomPage() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
   const [cardOrder, setCardOrder] = useState<number[]>([]);
+  const prevHandRef = useRef<CardData[]>([]);
   const { data: matchDetail } = useQuery({
     queryKey: ["matchDetail", roomId],
     queryFn: () => fetchMatchDetail(roomId!),
@@ -307,9 +308,26 @@ export default function GameRoomPage() {
         state.players?.forEach?.((p: PlayerState) => list.push(p));
         setPlayers(list);
 
-        const myHand = list.find((p) => p.sessionId === sessionId)?.hand;
-        if (myHand) {
+        const rawHand = list.find((p) => p.sessionId === sessionId)?.hand;
+        if (rawHand) {
+          const oldHand = prevHandRef.current.slice();
+          const myHand = rawHand.slice();
+          prevHandRef.current = myHand;
           setSelectedCardIndices((prev) => prev.filter((i) => i < myHand.length));
+          setCardOrder((prev) => {
+            if (prev.length === myHand.length) return prev;
+            const surviving: number[] = [];
+            for (const oldIdx of prev) {
+              const oldCard = oldHand[oldIdx];
+              if (!oldCard) continue;
+              const newIdx = myHand.findIndex((c) => c.rank === oldCard.rank && c.suit === oldCard.suit);
+              if (newIdx !== -1) surviving.push(newIdx);
+            }
+            for (let i = 0; i < myHand.length; i++) {
+              if (!surviving.includes(i)) surviving.push(i);
+            }
+            return surviving;
+          });
         }
 
         const dPile: CardData[] = [];
@@ -342,21 +360,18 @@ export default function GameRoomPage() {
     };
   }, [token, roomId]);
 
-  const myPlayer_hook = players.find((p) => p.sessionId === mySessionId);
-  const myHand_len = myPlayer_hook?.hand.length ?? 0;
+  useEffect(() => {
+    if (meldError) toast.error(meldError);
+  }, [meldError]);
 
   useEffect(() => {
-    setCardOrder((prev) => {
-      const hand = players.find((p) => p.sessionId === mySessionId)?.hand ?? [];
-      if (prev.length === hand.length) return prev;
-      return hand.map((_, i) => i);
-    });
-  }, [myHand_len]);
+    if (error) toast.error(error);
+  }, [error]);
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-        <Alert variant="destructive">{error}</Alert>
+        <p className="text-destructive text-sm">{error}</p>
         <Button onClick={() => navigate("/")}>Back to Lobby</Button>
       </div>
     );
@@ -640,7 +655,7 @@ export default function GameRoomPage() {
               </Button>
             )}
 
-            {meldError && <Alert variant="destructive">{meldError}</Alert>}
+            {meldError && <p className="text-destructive m-0 text-xs">{meldError}</p>}
             </div>
           </div>
 

@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Alert } from "../components/ui/alert";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -26,6 +26,7 @@ export default function LoginPage() {
       await login(email, password);
     } catch (err: any) {
       setError(err.message);
+      toast.error(err.message);
     }
   }
 
@@ -58,7 +59,6 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && <Alert variant="destructive">{error}</Alert>}
           </CardContent>
           <CardFooter className="flex-col gap-2 pt-6">
             <Button type="submit" className="w-full">Login</Button>

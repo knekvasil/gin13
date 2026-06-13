@@ -1,3 +1,4 @@
+import { Toaster } from "../components/ui/sonner";
 import { Sun, Moon, LogOut, Settings, Inbox } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
@@ -157,6 +158,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex-1 p-4 sm:p-6">{children}</main>
+      <Toaster />
     </div>
   );
 }

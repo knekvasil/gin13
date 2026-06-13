@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Alert } from "../components/ui/alert";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -27,6 +27,7 @@ export default function RegisterPage() {
       await register(email, password, displayName);
     } catch (err: any) {
       setError(err.message);
+      toast.error(err.message);
     }
   }
 
@@ -69,7 +70,6 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            {error && <Alert variant="destructive">{error}</Alert>}
           </CardContent>
           <CardFooter className="flex-col gap-2 pt-6">
             <Button type="submit" className="w-full">Register</Button>

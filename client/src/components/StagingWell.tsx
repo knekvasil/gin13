@@ -81,7 +81,13 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
             />
           ))
         ) : (
-          <span className="text-muted-foreground">Drop cards here to meld</span>
+          <div className="text-muted-foreground flex flex-col items-center gap-0.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+              <line x1="12" y1="8" x2="12" y2="16" />
+              <polyline points="8 12 12 16 16 12" />
+            </svg>
+          </div>
         )}
       </div>
     </div>
