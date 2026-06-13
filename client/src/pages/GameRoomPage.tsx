@@ -192,7 +192,7 @@ function SortableHandCard({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0 : 1 }}
+      style={{ transform: CSS.Transform.toString(transform), transition: isDragging ? transition : 'none 0s', opacity: isDragging ? 0 : 1 }}
       {...attributes}
       {...listeners}
     >
@@ -201,7 +201,6 @@ function SortableHandCard({
         suit={card.suit}
         wild={card.rank === wildRank}
         selected={selected}
-        layoutId={`card-${card.rank}-${card.suit}`}
         onClick={onClick}
         disabled={!canMeld && !canDiscard}
       />
@@ -310,8 +309,9 @@ export default function GameRoomPage() {
 
         const rawHand = list.find((p) => p.sessionId === sessionId)?.hand;
         if (rawHand) {
-          const oldHand = prevHandRef.current.slice();
-          const myHand = rawHand.slice();
+          const toPlain = (cards: CardData[]) => cards.map((c) => ({ rank: c.rank, suit: c.suit, meldGroupId: c.meldGroupId }));
+          const oldHand = toPlain(prevHandRef.current);
+          const myHand = toPlain(rawHand);
           prevHandRef.current = myHand;
           setSelectedCardIndices((prev) => prev.filter((i) => i < myHand.length));
           setCardOrder((prev) => {
