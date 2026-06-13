@@ -1,42 +1,59 @@
 import { useNavigate } from "react-router-dom";
 import { useLeaderboard } from "../stats/hooks";
+import { Button } from "../components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 
 export default function LeaderboardPage() {
   const navigate = useNavigate();
   const { data: leaderboard, isLoading, error } = useLeaderboard();
 
   return (
-    <div>
-      <h1>Leaderboard</h1>
-      <button onClick={() => navigate("/")}>Back to Lobby</button>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+          Leaderboard
+        </h1>
+        <Button variant="outline" onClick={() => navigate("/")}>
+          Back to Lobby
+        </Button>
+      </div>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
 
-      {error && <p>Error loading leaderboard</p>}
+      {error && <p className="text-destructive text-sm">Error loading leaderboard</p>}
 
-      {leaderboard && leaderboard.length === 0 && <p>No completed matches yet.</p>}
+      {leaderboard && leaderboard.length === 0 && (
+        <p className="text-muted-foreground text-sm">No completed matches yet.</p>
+      )}
 
       {leaderboard && leaderboard.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Player</th>
-              <th>Total Score</th>
-              <th>Round Wins</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Rank</TableHead>
+              <TableHead>Player</TableHead>
+              <TableHead>Total Score</TableHead>
+              <TableHead>Round Wins</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {leaderboard.map((entry, index) => (
-              <tr key={entry.userId}>
-                <td>{index + 1}</td>
-                <td>{entry.displayName}</td>
-                <td>{entry.totalScore}</td>
-                <td>{entry.roundWins}</td>
-              </tr>
+              <TableRow key={entry.userId}>
+                <TableCell className="font-medium">{index + 1}</TableCell>
+                <TableCell>{entry.displayName}</TableCell>
+                <TableCell>{entry.totalScore}</TableCell>
+                <TableCell>{entry.roundWins}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

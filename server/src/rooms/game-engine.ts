@@ -520,7 +520,12 @@ export function discardCard(
   sessionId: string,
   cardIndex: number,
 ): void {
-  assertPhase(state, "discard");
+  if (state.phase === "draw") {
+    throw new Error("Must draw before discarding");
+  }
+  if (state.phase !== "discard" && state.phase !== "main_phase") {
+    throw new Error(`Cannot discard during "${state.phase}" phase`);
+  }
   assertCurrentPlayer(state, sessionId);
 
   const player = getCurrentPlayer(state);

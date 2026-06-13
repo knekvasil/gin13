@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ThemeProvider } from "./components/theme-provider";
+import AppLayout from "./components/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import LobbyPage from "./pages/LobbyPage";
@@ -22,20 +24,26 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function NonGameLayout({ children }: { children: React.ReactNode }) {
+  return <AppLayout>{children}</AppLayout>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-            <Route path="/" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
-            <Route path="/game/:roomId" element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
-            <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
-            <Route path="/matches" element={<ProtectedRoute><MatchHistoryPage /></ProtectedRoute>} />
-          </Routes>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<PublicRoute><NonGameLayout><LoginPage /></NonGameLayout></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><NonGameLayout><RegisterPage /></NonGameLayout></PublicRoute>} />
+              <Route path="/" element={<ProtectedRoute><NonGameLayout><LobbyPage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/game/:roomId" element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute><NonGameLayout><LeaderboardPage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/matches" element={<ProtectedRoute><NonGameLayout><MatchHistoryPage /></NonGameLayout></ProtectedRoute>} />
+            </Routes>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );

@@ -23,7 +23,7 @@ The act of playing a meld from hand onto the table for the first time. A player 
 _Avoid_: Play, go down
 
 **Manipulate**:
-The act of adding a card from hand to an existing meld, or swapping a wild card out of a meld by replacing it with a card from hand. Only allowed once a player has already laid down at least one meld of their own. A wild freed by swapping returns to the manipulator's hand. Cards cannot be moved between melds — each meld can only grow or have its wild swapped.
+The act of adding a card from hand to an existing meld, or swapping a wild card out of a meld by replacing it with a card from hand. Only allowed once a player has already laid down at least one meld of their own. A wild freed by swapping returns to the manipulator's hand. Cards cannot be moved between melds — each meld can only grow or have its wild swapped. Manipulation via drag-and-drop: drag a hand card onto a non-wild in the meld group to add it; drag onto a wild card in the meld group to swap.
 _Avoid_: Play on, piggyback
 
 **Meld**:
@@ -46,6 +46,10 @@ _Avoid_: Hand, game
 - A **Meld** is either a 3-of-a-kind, 4-of-a-kind, or a **Straight flush**
 - A player must **Lay down** before they can **Manipulate**
 - A player **Goes out** to end the round
+
+**Staging well**:
+A transient floating zone that appears near a player's hand when they drag a card during their turn. Cards dropped into the staging well accumulate into a fan; once at least three cards are present and form a valid meld, a "Play" button appears to commit the meld. Other players see the staged cards as subtly highlighted in the dragger's hand rather than a separate zone.
+_Avoid_: Staging area, staging pile
 
 ## Example dialogue
 

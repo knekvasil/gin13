@@ -14,12 +14,17 @@ enum MatchStatus {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  passwordHash String
-  displayName  String
-  createdAt    DateTime      @default(now())
-  matchPlayers MatchPlayer[]
+  id            String        @id @default(uuid())
+  email         String        @unique
+  passwordHash  String
+  displayName   String
+  createdAt     DateTime      @default(now())
+  lastSeen      DateTime?
+  matchPlayers  MatchPlayer[]
+  stats         PlayerStats?
+  matchResults  PlayerMatchResult[]
+  sentRequests  Friendship[]  @relation("SentRequests")
+  receivedReqs  Friendship[]  @relation("ReceivedRequests")
 }
 
 model Match {
@@ -30,6 +35,7 @@ model Match {
   endedAt      DateTime?
   players      MatchPlayer[]
   roundResults RoundResult[]
+  playerResults PlayerMatchResult[]
 }
 
 model MatchPlayer {
@@ -54,4 +60,51 @@ model RoundResult {
   match       Match    @relation(fields: [matchId], references: [id])
 
   @@unique([matchId, roundNumber, playerId])
+}
+
+model PlayerStats {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  elo         Int      @default(1000)
+  totalMatches Int     @default(0)
+  wins        Int     @default(0)
+  totalScore  Int     @default(0)
+  roundWins   Int     @default(0)
+  biggestRoundLoss Int?
+  mostRoundsWonInAGame Int?
+  maxOpponentPointsInWonRound Int?
+  biggestGameWin  Int?
+  biggestGameLoss Int?
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model PlayerMatchResult {
+  id        String   @id @default(uuid())
+  userId    String
+  matchId   String
+  rank      Int?
+  score     Int
+  roundsWon Int
+  endedAt   DateTime
+  user      User     @relation(fields: [userId], references: [id])
+  match     Match    @relation(fields: [matchId], references: [id])
+
+  @@index([userId, endedAt])
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userId    String
+  friendId  String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User @relation("SentRequests", fields: [userId], references: [id])
+  friend   User @relation("ReceivedRequests", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+  @@index([userId, status])
+  @@index([friendId, status])
 }
