@@ -3,6 +3,7 @@ import {
   fetchLeaderboard,
   fetchMatchHistory,
   fetchPlayerStats,
+  fetchMatchDetail,
   searchUsers,
   fetchFriends,
   fetchFriendsStatus,
@@ -122,5 +123,13 @@ export function useUserSearch(q: string) {
     queryKey: ["userSearch", q],
     queryFn: () => searchUsers(q),
     enabled: q.length >= 2,
+  });
+}
+
+export function useMatchDetail(matchId: string | undefined) {
+  return useQuery({
+    queryKey: ["matchDetail", matchId],
+    queryFn: () => fetchMatchDetail(matchId!),
+    enabled: !!matchId,
   });
 }

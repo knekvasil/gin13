@@ -197,6 +197,8 @@ router.get("/match/:matchId", async (req: Request, res: Response) => {
       displayName: mp.user.displayName,
       totalScore: mp.score,
       rank: mp.finalRank,
+      eloBefore: mp.eloBefore,
+      eloDelta: mp.eloDelta,
     }));
 
     const roundScores: { roundNumber: number; wildRank: number; scores: { userId: string; handScore: number }[] }[] = [];

@@ -267,9 +267,12 @@ export class GameRoom extends Room<GameState> {
       });
       if (!matchPlayer) continue;
 
+      const eloBefore = eloMap.get(p.userId) ?? 1000;
+      const eloDelta = eloDeltas.get(p.userId) ?? 0;
+
       await prisma.matchPlayer.update({
         where: { id: matchPlayer.id },
-        data: { score: p.score, finalRank: rank },
+        data: { score: p.score, finalRank: rank, eloBefore, eloDelta },
       });
 
       const roundWins = roundWinsPerPlayer.get(p.userId) ?? 0;
@@ -277,7 +280,6 @@ export class GameRoom extends Room<GameState> {
       const opponentPoints = opponentScoresInWonRounds.get(p.userId) ?? [];
       const maxOpponentPoints = opponentPoints.length > 0 ? Math.max(...opponentPoints) : null;
       const isWin = rank === 1;
-      const eloDelta = eloDeltas.get(p.userId) ?? 0;
 
       const existing = await prisma.playerStats.findUnique({
         where: { userId: p.userId },

@@ -44,6 +44,8 @@ model MatchPlayer {
   userId    String
   score     Int     @default(0)
   finalRank Int?
+  eloBefore Int     @default(1000)
+  eloDelta  Int     @default(0)
   match     Match   @relation(fields: [matchId], references: [id])
   user      User    @relation(fields: [userId], references: [id])
 

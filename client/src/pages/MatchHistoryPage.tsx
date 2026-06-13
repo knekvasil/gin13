@@ -55,7 +55,11 @@ export default function MatchHistoryPage() {
           </TableHeader>
           <TableBody>
             {matches.map((m) => (
-              <TableRow key={m.matchId}>
+              <TableRow
+                key={m.matchId}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => navigate(`/match/${m.matchId}`)}
+              >
                 <TableCell>{new Date(m.date).toLocaleDateString()}</TableCell>
                 <TableCell>{rankLabel(m.finalRank)}</TableCell>
                 <TableCell>{m.totalScore}</TableCell>

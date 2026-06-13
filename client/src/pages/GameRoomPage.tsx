@@ -23,14 +23,10 @@ import MeldGroup from "../components/MeldGroup";
 import DiscardZone from "../components/DiscardZone";
 import { isWild, canMeldCards, RANK_NAMES } from "../lib/card-utils";
 import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
 import { toast } from "sonner";
 import ScoreboardSheet from "../components/ScoreboardSheet";
+import MatchOverScreen from "../components/MatchOverScreen";
+import RoundTransitionOverlay from "../components/RoundTransitionOverlay";
 
 interface CardData {
   rank: number;
@@ -230,14 +226,17 @@ export default function GameRoomPage() {
   const [timerPct, setTimerPct] = useState(100);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [showRoundTransition, setShowRoundTransition] = useState(false);
+  const handledRoundRef = useRef(0);
+
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
   const [cardOrder, setCardOrder] = useState<number[]>([]);
   const prevHandRef = useRef<CardData[]>([]);
   const { data: matchDetail } = useQuery({
-    queryKey: ["matchDetail", roomId],
+    queryKey: ["matchDetail", roomId, currentRound],
     queryFn: () => fetchMatchDetail(roomId!),
-    enabled: status === "finished" && !!roomId,
+    enabled: !!roomId,
   });
 
   const sensors = useSensors(
@@ -367,6 +366,12 @@ export default function GameRoomPage() {
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
+
+  useEffect(() => {
+    if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
+      setShowRoundTransition(true);
+    }
+  }, [currentRound, status]);
 
   if (error) {
     return (
@@ -655,7 +660,6 @@ export default function GameRoomPage() {
               </Button>
             )}
 
-            {meldError && <p className="text-destructive m-0 text-xs">{meldError}</p>}
             </div>
           </div>
 
@@ -727,74 +731,35 @@ export default function GameRoomPage() {
           </div>
         </div>
 
-        {/* Round ended overlay */}
-        {phase === "round_ended" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <Card className="w-full max-w-sm">
-              <CardHeader>
-                <CardTitle>Round {currentRound + 1} Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-3 text-sm">Wild: {wildName}</p>
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr className="border-border border-b">
-                      <th className="px-2 py-1 text-left">Player</th>
-                      <th className="px-2 py-1 text-right">Round</th>
-                      <th className="px-2 py-1 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roundScores.map((p) => (
-                      <tr key={p.sessionId} className="border-border/50 border-b">
-                        <td className="px-2 py-1">{p.name}</td>
-                        <td className="px-2 py-1 text-right">{p.roundScore}</td>
-                        <td className="px-2 py-1 text-right">{p.score}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Round transition */}
+        {showRoundTransition && matchDetail && (
+          <RoundTransitionOverlay
+            matchDetail={matchDetail}
+            playerCumulativeScores={players.map((p) => ({
+              userId: p.userId,
+              name: p.name,
+              cumulativeScore: p.score,
+            }))}
+            highlightRound={currentRound}
+            onContinue={() => {
+              handledRoundRef.current = currentRound;
+              setShowRoundTransition(false);
+            }}
+          />
         )}
 
         {/* Match finished */}
         {status === "finished" && winnerSessionId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <Card className="w-full max-w-sm">
-              <CardHeader>
-                <CardTitle>Match Over!</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-primary text-base font-bold">
-                  Winner: {players.find((p) => p.sessionId === winnerSessionId)?.name ?? "Unknown"}
-                </p>
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr className="border-border border-b">
-                      <th className="px-2 py-1 text-left">#</th>
-                      <th className="px-2 py-1 text-left">Player</th>
-                      <th className="px-2 py-1 text-right">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...players]
-                      .sort((a, b) => a.score - b.score)
-                      .map((p, i) => (
-                        <tr key={p.sessionId} className="border-border/50 border-b">
-                          <td className="px-2 py-1">{i + 1}</td>
-                          <td className="px-2 py-1">{p.name}</td>
-                          <td className="px-2 py-1 text-right">{p.score}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-                <Button className="w-full" onClick={() => { cleanupRef.current(); navigate("/"); }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto">
+            <div className="bg-background rounded-lg border p-6 m-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Match Over!</h2>
+                <Button variant="outline" size="sm" onClick={() => { cleanupRef.current(); navigate("/"); }}>
                   Back to Lobby
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+              {matchDetail && <MatchOverScreen matchDetail={matchDetail} />}
+            </div>
           </div>
         )}
       </div>

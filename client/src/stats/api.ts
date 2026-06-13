@@ -177,6 +177,8 @@ export interface MatchDetailPlayer {
   displayName: string;
   totalScore: number;
   rank: number | null;
+  eloBefore: number;
+  eloDelta: number;
 }
 
 export interface RoundScoreEntry {
