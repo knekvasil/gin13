@@ -171,4 +171,57 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/match/:matchId", async (req: Request, res: Response) => {
+  try {
+    const { matchId } = req.params;
+
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        players: {
+          include: { user: { select: { id: true, displayName: true } } },
+        },
+        roundResults: true,
+      },
+    });
+
+    if (!match) {
+      res.status(404).json({ error: "match not found" });
+      return;
+    }
+
+    const roundNumbers = [...new Set((match.roundResults as any[]).map((rr: any) => rr.roundNumber))].sort((a: number, b: number) => a - b);
+
+    const players = (match.players as any[]).map((mp: any) => ({
+      userId: mp.userId,
+      displayName: mp.user.displayName,
+      totalScore: mp.score,
+      rank: mp.finalRank,
+    }));
+
+    const roundScores: { roundNumber: number; wildRank: number; scores: { userId: string; handScore: number }[] }[] = [];
+    for (const rn of roundNumbers) {
+      const entries = (match.roundResults as any[]).filter((rr: any) => rr.roundNumber === rn);
+      roundScores.push({
+        roundNumber: rn,
+        wildRank: entries[0]?.wildRank ?? 0,
+        scores: (match.players as any[]).map((mp: any) => {
+          const rr = entries.find((e: any) => e.playerId === mp.userId);
+          return { userId: mp.userId, handScore: rr?.handScore ?? 0 };
+        }),
+      });
+    }
+
+    res.json({
+      matchId: match.id,
+      totalRounds: match.totalRounds,
+      players,
+      roundScores,
+    });
+  } catch (err) {
+    console.error("match detail error", err);
+    res.status(500).json({ error: "internal server error" });
+  }
+});
+
 export default router;

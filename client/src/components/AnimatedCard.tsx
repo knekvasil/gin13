@@ -16,6 +16,8 @@ interface AnimatedCardProps {
   dragId?: string;
   dragData?: Record<string, unknown>;
   style?: React.CSSProperties;
+  badge?: string | number;
+  glow?: "green" | "red";
 }
 
 function FaceDownCard({
@@ -26,6 +28,8 @@ function FaceDownCard({
   isDragging,
   layoutId,
   style,
+  badge,
+  glow,
 }: {
   small?: boolean;
   selected?: boolean;
@@ -34,6 +38,8 @@ function FaceDownCard({
   isDragging: boolean;
   layoutId?: string;
   style?: React.CSSProperties;
+  badge?: string | number;
+  glow?: "green" | "red";
 }) {
   return (
     <motion.div
@@ -46,13 +52,17 @@ function FaceDownCard({
         disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
         selected && "ring-2 ring-yellow-400",
         onClick && "cursor-pointer",
-        onClick && !disabled && "hover:ring-2 hover:ring-primary",
+        onClick && "hover:ring-2 hover:ring-primary",
       )}
       style={style}
-      whileHover={onClick && !disabled ? { y: -4 } : undefined}
+      whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 500, damping: 30 }}
     >
+      {glow && <span className={cn("absolute inset-0 rounded-md ring-2 pointer-events-none", glow === "green" ? "ring-green-500/60 animate-pulse" : "ring-red-500/60 animate-pulse")} />}
       <span className={cn("text-white font-bold", small ? "text-base" : "text-2xl")}>?</span>
+      {badge != null && (
+        <span className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground">{badge}</span>
+      )}
     </motion.div>
   );
 }
@@ -75,6 +85,8 @@ export default function AnimatedCard({
   dragId,
   dragData,
   style,
+  badge,
+  glow,
 }: AnimatedCardProps) {
   const isClickable = !!onClick;
 
@@ -94,6 +106,8 @@ export default function AnimatedCard({
         isDragging={isDragging}
         layoutId={layoutId}
         style={style}
+        badge={badge}
+        glow={glow}
       />
     );
   }
@@ -118,23 +132,27 @@ export default function AnimatedCard({
           : "border-border",
         disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
         (isClickable || isDraggable) && "cursor-grab active:cursor-grabbing",
-        (isClickable || isDraggable) && !disabled && "hover:ring-2 hover:ring-primary",
-      )}
-      style={style}
-      whileHover={!disabled ? { y: -4 } : undefined}
-      whileTap={!disabled ? { cursor: "grabbing" } : undefined}
-      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-    >
-      <span className={cn("font-bold leading-none", suitTextColor(suit), small ? "text-sm" : "text-lg")}>
-        {rankName}
-      </span>
-      <span className={cn("leading-none", suitTextColor(suit), small ? "text-base" : "text-xl")}>
-        {suitSymbol}
-      </span>
-      {wild && (
+        faceDown ? "" : (isClickable || isDraggable) && "hover:ring-2 hover:ring-primary",
+        )}
+        style={style}
+        whileHover={{ y: -4 }}
+        whileTap={!disabled ? { cursor: "grabbing" } : undefined}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      >
+        {glow && <span className={cn("absolute inset-0 rounded-md ring-2 pointer-events-none", glow === "green" ? "ring-green-500/60 animate-pulse" : "ring-red-500/60 animate-pulse")} />}
+        <span className={cn("font-bold leading-none", suitTextColor(suit), small ? "text-sm" : "text-lg")}>
+          {rankName}
+        </span>
+        <span className={cn("leading-none", suitTextColor(suit), small ? "text-base" : "text-xl")}>
+          {suitSymbol}
+        </span>
+        {wild && (
         <span className="absolute -top-1 -right-1 rounded-full bg-orange-500 px-1 py-0.5 text-[8px] font-bold leading-none text-white">
           W
         </span>
+      )}
+      {badge != null && (
+        <span className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground">{badge}</span>
       )}
     </motion.div>
   );

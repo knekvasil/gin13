@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMatchDetail, type MatchDetail } from "../stats/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { createColyseusClient } from "../auth/colyseus";
@@ -27,6 +29,8 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import { Alert } from "../components/ui/alert";
+import ScoreboardSheet from "../components/ScoreboardSheet";
 
 interface CardData {
   rank: number;
@@ -48,15 +52,73 @@ interface StagedCard extends CardData {
   handIndex: number;
 }
 
-function PlayerChip({ player }: { player: { name: string; score: number; disconnected: boolean } }) {
+function PlayerChip({
+  player, isTurn, timerPct, rank,
+}: {
+  player: { name: string; score: number; disconnected: boolean };
+  isTurn?: boolean;
+  timerPct?: number;
+  rank?: number | null;
+}) {
+  const isActive = !player.disconnected;
+  const rankColor = rank === 1 ? "text-yellow-500" : rank === 2 ? "text-gray-400" : rank === 3 ? "text-amber-700" : "";
   return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1 text-xs">
-      <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-        {player.name.charAt(0).toUpperCase()}
-      </span>
-      <span className="font-semibold">{player.name}</span>
-      <span className="text-muted-foreground">{player.score}</span>
-      {player.disconnected && <span className="text-destructive text-[10px]">(DC)</span>}
+    <div className={`relative flex flex-col rounded-lg px-2.5 py-1 text-xs transition-colors ${
+      isTurn
+        ? "ring-2 ring-primary bg-primary/5"
+        : "bg-muted/50"
+    }`}>
+      {isTurn && timerPct != null && (
+        <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none z-0">
+          <div
+            className="h-full transition-[width] duration-100 linear rounded-lg"
+            style={{
+              width: `${timerPct}%`,
+              background: timerPct > 30
+                ? "oklch(from var(--primary) l c h / 0.3)"
+                : timerPct > 10
+                  ? "rgb(255 152 0 / 0.3)"
+                  : "rgb(244 67 54 / 0.4)",
+            }}
+          />
+          {timerPct <= 10 && (
+            <div className="absolute inset-0 animate-pulse rounded-lg" style={{ background: "rgb(244 67 54 / 0.15)" }} />
+          )}
+        </div>
+      )}
+      <div className="flex items-center gap-1.5 relative z-20">
+        <div className="relative flex-shrink-0">
+          <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+            {player.name.charAt(0).toUpperCase()}
+          </span>
+          {isActive && (
+            <span className={`absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-background ${
+              isTurn ? "bg-green-500 animate-pulse" : "bg-green-500"
+            }`} />
+          )}
+          {!isActive && (
+            <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-background bg-red-500" />
+          )}
+        </div>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold">{player.name}</span>
+            {player.disconnected && <span className="text-destructive text-[10px]">(DC)</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            {rank != null && rank <= 3 && (
+              <span className={`font-bold ${rankColor}`}>
+                {rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"}
+              </span>
+            )}
+            {rank != null && rank >= 4 && (
+              <span className="text-muted-foreground">{rank}th</span>
+            )}
+            {rank != null && <span className="text-muted-foreground">&mdash;</span>}
+            <span className="text-muted-foreground">{player.score}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -88,16 +150,19 @@ function MeldsDisplay({
 }
 
 function OpponentSection({
-  player, wildRank, getMeldGroups, isMeldActive,
+  player, wildRank, getMeldGroups, isMeldActive, timerPct, isTurn, rank,
 }: {
   player: PlayerState;
   wildRank: number;
   getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
   isMeldActive: boolean;
+  timerPct?: number;
+  isTurn?: boolean;
+  rank?: number | null;
 }) {
   return (
-    <div className="flex flex-shrink-0 flex-col items-center gap-1 px-4 py-1.5">
-      <PlayerChip player={player} />
+    <div className="flex flex-shrink-0 flex-col items-center gap-1 px-2 py-1.5">
+      <PlayerChip player={player} isTurn={isTurn} timerPct={timerPct} rank={rank} />
       <div className="flex gap-0.5">
         {player.hand.map((_, i) => (
           <AnimatedCard key={i} faceDown small />
@@ -169,6 +234,11 @@ export default function GameRoomPage() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
   const [cardOrder, setCardOrder] = useState<number[]>([]);
+  const { data: matchDetail } = useQuery({
+    queryKey: ["matchDetail", roomId],
+    queryFn: () => fetchMatchDetail(roomId!),
+    enabled: status === "finished" && !!roomId,
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -286,8 +356,7 @@ export default function GameRoomPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-        <h1 className="text-2xl font-semibold">Error</h1>
-        <p className="text-muted-foreground">{error}</p>
+        <Alert variant="destructive">{error}</Alert>
         <Button onClick={() => navigate("/")}>Back to Lobby</Button>
       </div>
     );
@@ -314,9 +383,11 @@ export default function GameRoomPage() {
   const canAddToMeld = canMeld && myBoard.length > 0;
   const opponents = players.filter((p) => p.sessionId !== mySessionId);
 
-  const topOpponent = opponents[0] ?? null;
-  const rightOpponent = opponents[1] ?? null;
-  const leftOpponent = opponents[2] ?? null;
+  const playerCount = players.length;
+  const topOpponent = playerCount >= 4 ? opponents[0] : null;
+  const sideOpponents = playerCount >= 4 ? opponents.slice(1) : opponents;
+  const leftOpponent = sideOpponents[0] ?? null;
+  const rightOpponent = sideOpponents[1] ?? null;
 
   const wildName = RANK_NAMES[wildRank] || String(wildRank);
 
@@ -480,6 +551,9 @@ export default function GameRoomPage() {
     return { ...p, roundScore };
   });
 
+  const rankedByScore = [...players].sort((a, b) => a.score - b.score);
+  const rankMap = new Map(rankedByScore.map((p, i) => [p.sessionId, i + 1]));
+
   return (
     <DndContext
       sensors={sensors}
@@ -488,107 +562,93 @@ export default function GameRoomPage() {
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground font-sans">
-        {/* Top bar: round info */}
-        <div className="flex flex-shrink-0 items-center justify-center gap-4 bg-muted/50 px-4 py-1.5 text-xs">
-          <span>Round {currentRound + 1}/13</span>
-          <span className="font-semibold">Wild: {wildName}</span>
-          {status === "playing" && phase !== "waiting" && (
-            <span>Phase: {phase === "draw" ? "Draw" : phase === "main_phase" ? "Meld" : "Discard"}</span>
-          )}
-          {phase === "waiting" && <span>Waiting for players...</span>}
-        </div>
-
-        {/* Timer bar */}
-        {status === "playing" && phase !== "waiting" && phase !== "round_ended" && phase !== "finished" && (
-          <div className="h-1 w-full flex-shrink-0 bg-muted">
-            <div
-              className="h-full transition-[width] duration-100 linear"
-              style={{
-                width: `${timerPct}%`,
-                background: isMyTurn
-                  ? timerPct > 30 ? "var(--color-primary)" : timerPct > 10 ? "#ff9800" : "#f44336"
-                  : "var(--color-muted-foreground)",
-                opacity: isMyTurn ? 1 : 0.5,
-              }}
-            />
-          </div>
-        )}
+        {/* Scoreboard Sheet trigger */}
+        <ScoreboardSheet matchDetail={matchDetail ?? null} />
 
         {/* Main board area */}
         <div className="relative flex flex-1 flex-col overflow-hidden">
-          {/* Top opponent */}
+          {/* Top opponent (only for 4 players) */}
           {topOpponent && (
             <OpponentSection
               player={topOpponent}
               wildRank={wildRank}
               getMeldGroups={getMeldGroups}
               isMeldActive={canAddToMeld}
+              timerPct={currentPlayer?.sessionId === topOpponent.sessionId ? timerPct : undefined}
+              isTurn={currentPlayer?.sessionId === topOpponent.sessionId}
+              rank={rankMap.get(topOpponent.sessionId)}
             />
           )}
 
-          {/* Middle: left opponent + center + right opponent */}
-          <div className="relative flex flex-1 items-center">
-            {/* Left opponent */}
-            {leftOpponent && (
-              <div className="flex w-[140px] flex-shrink-0 flex-col items-center gap-2 p-2">
-                <PlayerChip player={leftOpponent} />
-                <div className="flex gap-0.5">
-                  {leftOpponent.hand.map((_, i) => (
-                    <AnimatedCard key={i} faceDown small />
-                  ))}
+          {/* Rhombus layout: left/right row then decks below */}
+          <div className="relative flex flex-1 flex-col items-center">
+            <div className="flex flex-col items-center gap-3 my-auto">
+            {/* Left + Right opponents row */}
+            <div className="flex items-start justify-center gap-12 sm:gap-24">
+              {/* Left opponent */}
+              {leftOpponent && (
+                <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2 max-sm:hidden">
+                  <PlayerChip player={leftOpponent} isTurn={currentPlayer?.sessionId === leftOpponent.sessionId} timerPct={currentPlayer?.sessionId === leftOpponent.sessionId ? timerPct : undefined} rank={rankMap.get(leftOpponent.sessionId)} />
+                  <div className="flex gap-0.5">
+                    {leftOpponent.hand.map((_, i) => (
+                      <AnimatedCard key={i} faceDown small />
+                    ))}
+                  </div>
+                  <MeldsDisplay player={leftOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
                 </div>
-                <MeldsDisplay player={leftOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
-              </div>
-            )}
+              )}
 
-            {/* Center: draw, discard, staging */}
-            <div className="flex flex-1 flex-col items-center justify-center gap-3">
-              {/* Draw + Discard */}
-              <div className="flex items-start gap-6">
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-1 text-[11px] font-semibold">Draw</p>
+              {/* Right opponent */}
+              {rightOpponent && (
+                <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2 max-sm:hidden">
+                  <PlayerChip player={rightOpponent} isTurn={currentPlayer?.sessionId === rightOpponent.sessionId} timerPct={currentPlayer?.sessionId === rightOpponent.sessionId ? timerPct : undefined} rank={rankMap.get(rightOpponent.sessionId)} />
+                  <div className="flex gap-0.5">
+                    {rightOpponent.hand.map((_, i) => (
+                      <AnimatedCard key={i} faceDown small />
+                    ))}
+                  </div>
+                  <MeldsDisplay player={rightOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
+                </div>
+              )}
+            </div>
+
+            {/* Decks row (below left/right) */}
+            <div className="flex items-start gap-6">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-1 text-[11px] font-semibold">Draw</p>
                   <AnimatedCard
                     faceDown
                     onClick={handleDrawFromDeck}
                     disabled={!canDraw}
                     layoutId="draw-pile"
+                    badge={drawPile.length}
+                    glow={canDraw ? "green" : undefined}
                   />
-                  <p className="text-muted-foreground mt-1 text-[10px]">{drawPile.length}</p>
-                </div>
-                <DiscardZone
-                  discardPile={discardPile}
-                  wildRank={wildRank}
-                  isActive={canDraw || canDiscard}
-                  onClick={canDraw ? handleDrawFromDiscard : undefined}
-                />
               </div>
-
-              {/* Action buttons */}
-              {status === "waiting" && players.length >= 3 && (
-                <Button size="lg" onClick={() => room?.send("start_game")}>
-                  Start Game
-                </Button>
-              )}
-
-              {meldError && <p className="text-destructive m-0 text-xs">{meldError}</p>}
+              <DiscardZone
+                discardPile={discardPile}
+                wildRank={wildRank}
+                isActive={canDraw || canDiscard}
+                onClick={canDraw ? handleDrawFromDiscard : undefined}
+                activeGlow={canDraw ? "green" : canDiscard ? "red" : undefined}
+              />
             </div>
 
-            {/* Right opponent */}
-            {rightOpponent && (
-              <div className="flex w-[140px] flex-shrink-0 flex-col items-center gap-2 p-2">
-                <PlayerChip player={rightOpponent} />
-                <div className="flex gap-0.5">
-                  {rightOpponent.hand.map((_, i) => (
-                    <AnimatedCard key={i} faceDown small />
-                  ))}
-                </div>
-                <MeldsDisplay player={rightOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
-              </div>
+            {status === "waiting" && players.length >= 3 && (
+              <Button size="lg" onClick={() => room?.send("start_game")}>
+                Start Game
+              </Button>
             )}
+
+            {meldError && <Alert variant="destructive">{meldError}</Alert>}
+            </div>
           </div>
 
           {/* Bottom: your area */}
-          <div className="flex flex-shrink-0 flex-col items-center gap-1.5 bg-muted/30 px-4 py-2">
+          <div className="relative flex flex-shrink-0 flex-col items-center gap-1.5 px-4 py-2 bg-muted/30">
+            {isMyTurn && timerPct <= 10 && (
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/8 to-red-500/0 animate-pulse pointer-events-none" />
+            )}
             <StagingWell
               cards={stagedCards}
               wildRank={wildRank}
@@ -648,7 +708,7 @@ export default function GameRoomPage() {
               )}
             </div>
 
-            <PlayerChip player={myPlayer ?? { sessionId: mySessionId, userId: "", name: "You", score: 0, disconnected: false, hand: [], board: [] }} />
+            <PlayerChip player={myPlayer ?? { sessionId: mySessionId, userId: "", name: "You", score: 0, disconnected: false, hand: [], board: [] }} isTurn={isMyTurn} timerPct={isMyTurn ? timerPct : undefined} rank={myPlayer ? rankMap.get(myPlayer.sessionId) : null} />
           </div>
         </div>
 

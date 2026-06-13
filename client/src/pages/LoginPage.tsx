@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
+import { Alert } from "../components/ui/alert";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -57,7 +58,7 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && <p className="text-destructive text-sm">{error}</p>}
+            {error && <Alert variant="destructive">{error}</Alert>}
           </CardContent>
           <CardFooter className="flex-col gap-2 pt-6">
             <Button type="submit" className="w-full">Login</Button>

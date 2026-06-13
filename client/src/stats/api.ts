@@ -172,6 +172,32 @@ export async function fetchHeadToHead(userId: string): Promise<HeadToHeadEntry[]
   return res.json();
 }
 
+export interface MatchDetailPlayer {
+  userId: string;
+  displayName: string;
+  totalScore: number;
+  rank: number | null;
+}
+
+export interface RoundScoreEntry {
+  roundNumber: number;
+  wildRank: number;
+  scores: { userId: string; handScore: number }[];
+}
+
+export interface MatchDetail {
+  matchId: string;
+  totalRounds: number;
+  players: MatchDetailPlayer[];
+  roundScores: RoundScoreEntry[];
+}
+
+export async function fetchMatchDetail(matchId: string): Promise<MatchDetail> {
+  const res = await fetch(`${API_BASE}/match/${matchId}`);
+  if (!res.ok) throw new Error("failed to fetch match detail");
+  return res.json();
+}
+
 export async function fetchRecentOpponents(userId: string): Promise<RecentOpponent[]> {
   const res = await fetch(`${API_BASE}/recent-opponents/${userId}`);
   if (!res.ok) throw new Error("failed to fetch recent opponents");
