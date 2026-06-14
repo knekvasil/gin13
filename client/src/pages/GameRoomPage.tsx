@@ -239,7 +239,6 @@ export default function GameRoomPage() {
   const [showRoundTransition, setShowRoundTransition] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const handledRoundRef = useRef(0);
-  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
@@ -397,18 +396,13 @@ export default function GameRoomPage() {
     }
   }, [phase, status]);
 
-  // Transition appears after the server's 2s delay launches the next round
+  // Transition appears immediately when the next round starts (after server's 2s delay)
   useEffect(() => {
     if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
       handledRoundRef.current = currentRound;
-      celebrationTimerRef.current = setTimeout(() => {
-        setShowCelebration(false);
-        setShowRoundTransition(true);
-      }, 500);
+      setShowCelebration(false);
+      setShowRoundTransition(true);
     }
-    return () => {
-      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
-    };
   }, [currentRound, status]);
 
   if (error) {

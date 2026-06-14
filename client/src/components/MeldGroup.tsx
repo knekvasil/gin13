@@ -91,11 +91,11 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
         key={`${meldGroupId}-${ci}`}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={celebrating
-          ? { y: [null, -10, 0] }
-          : { scale: 1, opacity: 1 }
+          ? { y: -6 }
+          : { y: 0, scale: 1, opacity: 1 }
         }
         transition={celebrating
-          ? { y: { duration: 0.4, repeat: Infinity, ease: "easeInOut", delay: ci * 0.1 } }
+          ? { y: { duration: 0.25, repeat: Infinity, repeatType: "reverse", ease: "easeInOut", delay: ci * 0.08 } }
           : { type: "spring", stiffness: 400, damping: 25, delay: ci * 0.05 }
         }
       >
