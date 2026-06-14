@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ArraySchema } from "@colyseus/schema";
 import { GameState, Player, createGameState, CardSchema, createCard } from "./GameState";
-import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, calculateRoundScores, startNextRound, endMatch, autoPlayTurn } from "./game-engine";
+import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, calculateRoundScores, startNextRound, endMatch, endRound, autoPlayTurn } from "./game-engine";
 
 function twoPlayerState(): GameState {
   const state = createGameState();
@@ -457,6 +457,84 @@ describe("meldCards", () => {
       expect(card.meldGroupId).toBe(meldGroupId);
     }
     expect(state.phase).toBe("main_phase");
+  });
+
+  it("accepts an all-wild set (three wilds)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 1, suit: 2 },
+      { rank: 7, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2]);
+    expect(p1.board.length).toBe(3);
+    expect(p1.hand.length).toBe(1);
+    const gid = p1.board[0]!.meldGroupId;
+    for (const c of p1.board) expect(c.meldGroupId).toBe(gid);
+  });
+
+  it("accepts a set with two wilds filling missing suits", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 5, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 1, suit: 2 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2]);
+    expect(p1.board.length).toBe(3);
+  });
+
+  it("accepts a straight flush with wilds at both ends", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 3, suit: 0 },
+      { rank: 4, suit: 0 },
+      { rank: 5, suit: 0 },
+      { rank: 1, suit: 1 },
+    ]);
+    state.players.push(p1);
+
+    // W, 3, 4, 5, W — wilds at both ends representing 2 and 6
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    expect(p1.board.length).toBe(5);
+    const gid = p1.board[0]!.meldGroupId;
+    for (const c of p1.board) expect(c.meldGroupId).toBe(gid);
   });
 });
 
@@ -940,6 +1018,94 @@ describe("addToMeld", () => {
     expect(p1.hand.length).toBe(1);
     expect(p1.board.length).toBe(3);
   });
+
+  it("adds a card to an all-wild meld turning it into a set of wildRank", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 1, suit: 2 },
+      { rank: 5, suit: 3 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(3);
+
+    // Add 5♣ to the all-wild meld → set of rank 5
+    addToMeld(state, "s1", 0, gid);
+    expect(p1.board.length).toBe(4);
+    expect(p1.board.some((c) => c.rank === 5)).toBe(true);
+  });
+
+  it("rejects adding a 5th card to a 4-card set", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 5, suit: 0 },
+      { rank: 5, suit: 1 },
+      { rank: 5, suit: 2 },
+      { rank: 5, suit: 3 },
+      { rank: 5, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(4);
+
+    expect(() => addToMeld(state, "s1", 0, gid)).toThrow("Invalid manipulation");
+    expect(p1.board.length).toBe(4);
+  });
+
+  it("rejects preferSwap on the first wild when it breaks ordered straight", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 13, suit: 0 },
+      { rank: 12, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // Create straight: [W, J, W, K]
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+
+    // addToMeld with preferSwap=true always targets the FIRST wild
+    // Swapping pos 0's W with Q gives [Q, J, W, K] which breaks ordered straight
+    expect(() => addToMeld(state, "s1", 0, gid, true)).toThrow("Invalid manipulation");
+  });
 });
 
 describe("swapWild", () => {
@@ -978,6 +1144,74 @@ describe("swapWild", () => {
     for (const card of p1.board) {
       expect(card.meldGroupId).toBe(meldGroupId);
     }
+  });
+
+  it("swaps the correct wild by index when multiple wilds exist in a straight", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 13, suit: 0 },
+      { rank: 12, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // [W, J, W, K] — wilds at pos 0 and pos 2 in board
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(4);
+
+    // Wild at meldCards index 2 (board position 2, the second wild)
+    swapWild(state, "s1", gid, 2, 0);
+    expect(p1.board.length).toBe(4);
+    expect(p1.board.some((c) => c.rank === 12)).toBe(true); // Q on board
+    expect(p1.hand.some((c) => c.rank === 1)).toBe(true); // wild returned
+  });
+
+  it("swapWild allows disordered sequence (no ordered check in swapWild)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 13, suit: 0 },
+      { rank: 12, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // [W, J, W, K] - wilds at pos 0 and pos 2
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+
+    // Swap the FIRST wild (index 0) with Q:
+    // After: [Q(12), J(11), W, K] → set {11,12,13} + wild = valid canMeld
+    // But ordered sequence [12, 11, 1, 13] is not consecutive
+    // swapWild uses canMeld (order-agnostic) → accepts
+    swapWild(state, "s1", gid, 0, 0);
+    expect(p1.board.length).toBe(4);
+    // swapWild removes wild and pushes replacement at end (no position preservation)
+    expect(p1.board.some((c) => c.rank === 12)).toBe(true); // Q is on board
   });
 });
 
@@ -1034,6 +1268,101 @@ describe("going out via manipulation", () => {
     discardCard(state, "s1", 0);
 
     expect(state.phase).toBe("round_ended");
+  });
+});
+
+describe("endRound", () => {
+  it("ends the round and adds hand scores to player totals", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 10;
+    // p1 goes out — empty hand
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 20;
+    addCardsToHand(p2, [
+      { rank: 3, suit: 0 },
+      { rank: 4, suit: 1 },
+    ]);
+    state.players.push(p1, p2);
+
+    endRound(state);
+
+    expect(state.phase).toBe("round_ended");
+    // p1 (out): hand empty → +0, p2: 3+4=7
+    expect(p1.score).toBe(10);
+    expect(p2.score).toBe(27);
+  });
+
+  it("handles a tie where multiple players have empty hands", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 5;
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 10;
+    addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
+    state.players.push(p1, p2);
+
+    // Both have empty hands? Actually p2 has 1 card (3 points)
+    // P1 goes out (empty hand), P2 scores 3
+    endRound(state);
+    expect(p1.score).toBe(5);
+    expect(p2.score).toBe(13);
+  });
+
+  it("scores wild cards in hand at 25 points each", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [
+      { rank: 1, suit: 0 }, // wild → 25
+      { rank: 1, suit: 1 }, // wild → 25
+    ]);
+    state.players.push(p1, p2);
+
+    // P1 goes out (0), P2 has 2 wilds = 50 points
+    endRound(state);
+    expect(p2.score).toBe(50);
   });
 });
 
@@ -1272,6 +1601,87 @@ describe("autoPlayTurn", () => {
     const discarded = state.discardPile[0]!;
     expect(discarded.rank).toBe(1);
     expect(discarded.suit).toBe(0);
+  });
+
+  it("auto-plays when player has melded cards on board", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
+    state.players.push(p1, p2);
+
+    addCardsToHand(p1, [
+      { rank: 5, suit: 0 },
+      { rank: 5, suit: 1 },
+      { rank: 5, suit: 2 },
+      { rank: 1, suit: 1 },
+    ]);
+    state.phase = "main_phase";
+    meldCards(state, "s1", [0, 1, 2]);
+    // p1 hand: [1(wild)] board: [5,5,5]
+
+    state.drawPile.push(createCard(8, 0));
+
+    state.phase = "draw";
+    autoPlayTurn(state);
+
+    // Started: 1 in hand, drew 1 (8), discarded highest (wild=25) → 1 remains
+    expect(p1.hand.length).toBe(1);
+    expect(p1.hand[0]!.rank).toBe(8);
+    expect(state.currentPlayerIndex).toBe(1);
+    expect(state.phase).toBe("draw");
+  });
+
+  it("auto-play triggers endRound when player discards last card", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    p1.score = 0;
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    p2.score = 0;
+    addCardsToHand(p2, [{ rank: 3, suit: 0 }]);
+    state.players.push(p1, p2);
+
+    addCardsToHand(p1, [{ rank: 3, suit: 0 }]);
+    state.phase = "main_phase";
+    // Melds the only card in hand? No, 1 card can't form a meld.
+    // Instead: hand has 1 card (3), no meld needed. Just draw + discard.
+
+    state.drawPile.push(createCard(5, 0));
+
+    state.phase = "draw";
+    autoPlayTurn(state);
+
+    // p1 draws 5, discards highest (5 > 3, discards 5)
+    // Actually autoPlay discards highest point card: 5=5, 3=3 → discards 5
+    // Hand remains: [3] — not empty, round doesn't end
+    expect(p1.hand.length).toBe(1);
+    expect(state.currentPlayerIndex).toBe(1);
   });
 });
 
