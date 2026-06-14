@@ -156,7 +156,7 @@ describe("FSM enforcement", () => {
   it("cannot discard before drawing (wrong phase)", () => {
     const state = twoPlayerState();
     expect(() => discardCard(state, "s1", 0)).toThrow(
-      "Expected phase \"discard\"",
+      "Must draw before discarding",
     );
   });
 });
@@ -825,6 +825,93 @@ describe("addToMeld", () => {
 
     // Swap the wild (at index 2) with another wild from hand (index 0)
     expect(() => swapWild(state, "s1", meldGroupId, 2, 0)).toThrow("Cannot swap a wild with another wild");
+  });
+
+  it("rejects extending a straight into ranks already on the board by another player", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 7;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 5, suit: 0 },
+      { rank: 6, suit: 0 },
+      { rank: 7, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 7, suit: 0 }, // another wild
+    ]);
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p2, [
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 7, suit: 1 }, // wild in a different suit
+    ]);
+    state.players.push(p1, p2);
+
+    // P1 melds (5,6,7♠wild,8) — 7 is wild this round
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const p1Group = p1.board[0]!.meldGroupId;
+
+    // P2 melds (9,10,J,Q) all ♠
+    state.currentPlayerIndex = 1;
+    meldCards(state, "s2", [0, 1, 2, 3]);
+    state.currentPlayerIndex = 0;
+
+    // P1 tries to add a wild to the right of (5-8) — wild at end would represent rank 9♠
+    // But 9♠ is already on P2's board
+    expect(() => addToMeld(state, "s1", 0, p1Group, false, "end")).toThrow("already on the board");
+    expect(p1.board.length).toBe(4);
+    expect(p1.hand.length).toBe(1);
+  });
+
+  it("rejects creating a set of a rank already on the board as a set", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 6, suit: 0 },
+      { rank: 6, suit: 1 },
+      { rank: 1, suit: 2 }, // wild
+    ]);
+    const p2 = new Player();
+    p2.sessionId = "s2";
+    p2.name = "Bob";
+    p2.hand = new ArraySchema<CardSchema>();
+    p2.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p2, [
+      { rank: 6, suit: 2 },
+      { rank: 6, suit: 3 },
+      { rank: 1, suit: 0 }, // wild
+    ]);
+    state.players.push(p1, p2);
+
+    // P1 melds (6♠,6♥,A♦) — a set of 6s
+    meldCards(state, "s1", [0, 1, 2]);
+    expect(p1.board.length).toBe(3);
+
+    // P2 tries to meld (6♣,6♦,A♠) — another set of 6s → rejected
+    state.currentPlayerIndex = 1;
+    expect(() => meldCards(state, "s2", [0, 1, 2])).toThrow("already exists on the board");
+    expect(p2.board.length).toBe(0);
   });
 
   it("rejects adding a card that makes the meld invalid", () => {

@@ -286,6 +286,11 @@ export function meldCards(
     throw new Error("Invalid meld");
   }
 
+  // Check board for existing set of same rank
+  if (isValidSet(cards, state.wildRank) && !isValidStraightFlush(cards, state.wildRank)) {
+    checkSetConflict(state, cards, "", state.wildRank);
+  }
+
   const removeOrder = [...cardIndices].sort((a, b) => b - a);
   for (const idx of removeOrder) {
     player.hand.splice(idx, 1);
@@ -343,6 +348,60 @@ function isOrderedStraightFlush(cards: CardSchema[], wildRank: number): boolean 
   if (startRank < 1) return false;
   if (endRank > 13) return false;
   return true;
+}
+
+function checkBoardConflict(
+  state: GameState,
+  cards: CardSchema[],
+  meldGroupId: string,
+  wildRank: number,
+): void {
+  let suit: number | null = null;
+  let firstNonWildIdx = -1;
+  let firstNonWildRank = 0;
+  for (let i = 0; i < cards.length; i++) {
+    if (isWild(cards[i]!, wildRank)) continue;
+    if (suit === null) suit = cards[i]!.suit;
+    if (firstNonWildIdx === -1) {
+      firstNonWildIdx = i;
+      firstNonWildRank = cards[i]!.rank;
+    }
+  }
+  if (suit === null) return;
+  const startRank = firstNonWildRank - firstNonWildIdx;
+
+  for (const player of state.players) {
+    for (const card of player.board) {
+      if (card.meldGroupId === meldGroupId) continue;
+      if (card.suit !== suit) continue;
+      if (isWild(card, wildRank)) continue;
+      for (let pos = 0; pos < cards.length; pos++) {
+        if (startRank + pos === card.rank) {
+          throw new Error("Card of that rank and suit already on the board");
+        }
+      }
+    }
+  }
+}
+
+function checkSetConflict(
+  state: GameState,
+  cards: CardSchema[],
+  meldGroupId: string,
+  wildRank: number,
+): void {
+  const setRank = cards.find((c) => !isWild(c, wildRank))?.rank;
+  if (!setRank) return;
+  for (const player of state.players) {
+    for (const other of player.board) {
+      if (other.meldGroupId === meldGroupId) continue;
+      if (other.meldGroupId === "") continue;
+      if (isWild(other, wildRank)) continue;
+      if (other.rank === setRank) {
+        throw new Error("A set of that rank already exists on the board");
+      }
+    }
+  }
 }
 
 export function addToMeld(
@@ -404,6 +463,23 @@ export function addToMeld(
       ordered.splice(wildIdx, 1, card);
       return isOrderedStraightFlush(ordered, state.wildRank);
     })();
+
+  // Board-level conflict check: proposed straight must not overlap existing cards
+  if (straight) {
+    const proposedAdd = (position === "start" ? [card, ...found.cards] : [...found.cards, card]);
+    const proposedSwap = wildInMeld
+      ? (() => { const tmp = [...found.cards]; const wi = found.cards.indexOf(wildInMeld); tmp.splice(wi, 1, card); return tmp; })()
+      : null;
+    if (canAdd && orderOkAdd) checkBoardConflict(state, proposedAdd, meldGroupId, state.wildRank);
+    if (canSwap && orderOkSwap && proposedSwap) checkBoardConflict(state, proposedSwap, meldGroupId, state.wildRank);
+  } else if (!straight) {
+    // Set meld: check for existing set of same rank on board
+    if (canAdd) checkSetConflict(state, [...found.cards, card], meldGroupId, state.wildRank);
+    if (canSwap && wildInMeld) {
+      const tmp = found.cards.filter((c) => c !== wildInMeld).concat(card);
+      checkSetConflict(state, tmp, meldGroupId, state.wildRank);
+    }
+  }
 
   if (canAdd && orderOkAdd && canSwap && orderOkSwap && preferSwap === undefined) {
     player.hand.splice(cardIndex, 1)[0];
