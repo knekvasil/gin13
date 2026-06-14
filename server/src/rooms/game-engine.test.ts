@@ -760,6 +760,45 @@ describe("addToMeld", () => {
     expect(p1.board[5]!.rank).toBe(13);
   });
 
+  it("adds a wild to the left or right of (7,8,9,10,W) wild=5", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 5;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 7, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+      { rank: 5, suit: 0 },
+      { rank: 5, suit: 1 },
+    ]);
+    state.players.push(p1);
+
+    // Create [7, 8, 9, 10, 5(W)] — wild at end represents J
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    // Try adding another wild to the RIGHT
+    addToMeld(state, "s1", 0, gid, false, "end");
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[0]!.rank).toBe(7);
+    expect(p1.board[1]!.rank).toBe(8);
+    expect(p1.board[2]!.rank).toBe(9);
+    expect(p1.board[3]!.rank).toBe(10);
+    expect(p1.board[4]!.rank).toBe(5); // existing wild
+    expect(p1.board[5]!.rank).toBe(5); // new wild
+  });
+
   it("adds a card to a straight flush meld at the end position", () => {
     const state = createGameState();
     state.status = "playing";

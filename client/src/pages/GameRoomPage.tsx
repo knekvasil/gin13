@@ -555,7 +555,12 @@ export default function GameRoomPage() {
       const meldGroupId = dropData?.meldGroupId as string;
       const meldCardIndex = dropData?.meldCardIndex as number;
       if (!room || !canMeld) return;
-      room.send("swap_wild", { meldGroupId, meldCardIndex, handCardIndex: handIndex });
+      // If the hand card is also a wild, add it instead of swapping (wild-to-wild swap is illegal)
+      if (sourceData.rank === wildRank) {
+        room.send("add_to_meld", { cardIndex: handIndex, meldGroupId, preferSwap: false });
+      } else {
+        room.send("swap_wild", { meldGroupId, meldCardIndex, handCardIndex: handIndex });
+      }
       return;
     }
   };
