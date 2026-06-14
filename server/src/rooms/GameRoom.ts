@@ -24,6 +24,7 @@ import { ArraySchema } from "@colyseus/schema";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
 const TURN_TIMEOUT_MS = 60_000;
+let nextBotIndex = 0;
 
 export class GameRoom extends Room<GameState> {
   private disconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
@@ -55,7 +56,7 @@ export class GameRoom extends Room<GameState> {
     const botNames = ["Alpha","Beta","Gamma","Delta","Echo","Foxtrot","Golf","Hotel","India","Juliett","Kilo","Lima"];
     const botCount = options.bots ?? 0;
     for (let i = 0; i < botCount; i++) {
-      const profileIdx = (this.state.players.length - botCount + i) % 12;
+      const profileIdx = (nextBotIndex + i) % botNames.length;
       const botId = `bot_${profileIdx}`;
       const botName = botNames[profileIdx]!;
 
@@ -94,6 +95,7 @@ export class GameRoom extends Room<GameState> {
 
       this.setMetadata({ totalRounds, players: this.state.players.length });
     }
+    nextBotIndex = (nextBotIndex + botCount) % botNames.length;
 
     this.onMessage("start_game", (_client) => {
       if (this.state.players.length < 2) return;
