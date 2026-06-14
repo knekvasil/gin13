@@ -179,7 +179,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                       name={p.displayName}
                       stroke={COLORS[i % COLORS.length]}
                       strokeWidth={2}
-                      dot={false}
+                      dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
                     />

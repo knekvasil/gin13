@@ -182,7 +182,7 @@ export default function RoundTransitionOverlay({
                       name={ps.name}
                       stroke={COLORS[i % COLORS.length]}
                       strokeWidth={2}
-                      dot={false}
+                      dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
                     />

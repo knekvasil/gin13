@@ -154,20 +154,20 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                     type="monotone"
                     dataKey={p.userId}
                     name={p.displayName}
-                    stroke={COLORS[i % COLORS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls={false}
-                    activeDot={false}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                      connectNulls={false}
+                      activeDot={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-        <div>
-          <p className="text-muted-foreground mb-2 text-[0.65rem] font-medium uppercase tracking-wider">
-            Points Per Round
+          <div>
+            <p className="text-muted-foreground mb-2 text-[0.65rem] font-medium uppercase tracking-wider">
+              Points Per Round
           </p>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
