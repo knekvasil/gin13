@@ -89,10 +89,13 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
     return (
       <motion.div
         key={`${meldGroupId}-${ci}`}
-        initial={celebrating ? false : { scale: 0.8, opacity: 0 }}
-        animate={celebrating ? { y: [0, -6, 0] } : { scale: 1, opacity: 1 }}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={celebrating
+          ? { y: [null, -10, 0] }
+          : { scale: 1, opacity: 1 }
+        }
         transition={celebrating
-          ? { y: { duration: 0.3, repeat: Infinity, ease: "easeInOut", delay: ci * 0.08 } }
+          ? { y: { duration: 0.4, repeat: Infinity, ease: "easeInOut", delay: ci * 0.1 } }
           : { type: "spring", stiffness: 400, damping: 25, delay: ci * 0.05 }
         }
       >

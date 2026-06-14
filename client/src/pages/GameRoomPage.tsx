@@ -239,6 +239,7 @@ export default function GameRoomPage() {
   const [showRoundTransition, setShowRoundTransition] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const handledRoundRef = useRef(0);
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
@@ -390,23 +391,18 @@ export default function GameRoomPage() {
   }, [error]);
 
   useEffect(() => {
-    if (phase === "round_ended" && status === "playing" && currentRound > 0) {
+    if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
+      handledRoundRef.current = currentRound;
       setShowCelebration(true);
-      const timer = setTimeout(() => {
+      celebrationTimerRef.current = setTimeout(() => {
         setShowCelebration(false);
         setShowRoundTransition(true);
-      }, 4000);
-      return () => clearTimeout(timer);
+      }, 2000);
     }
-  }, [phase, status, currentRound]);
-
-  useEffect(() => {
-    if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
-      if (!showCelebration) {
-        setShowRoundTransition(true);
-      }
-    }
-  }, [currentRound, status, showCelebration]);
+    return () => {
+      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    };
+  }, [currentRound, status]);
 
   if (error) {
     return (
@@ -773,38 +769,6 @@ export default function GameRoomPage() {
             <PlayerChip player={myPlayer ?? { sessionId: mySessionId, userId: "", name: "You", score: 0, disconnected: false, hand: [], board: [] }} isTurn={isMyTurn} timerPct={isMyTurn ? timerPct : undefined} rank={myPlayer ? rankMap.get(myPlayer.sessionId) : null} />
           </div>
         </div>
-
-        {/* Round celebration */}
-        {showCelebration && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="text-center space-y-4">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                className="text-6xl"
-              >
-                🔥
-              </motion.div>
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-2xl font-bold text-white"
-              >
-                Round Complete!
-              </motion.p>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-muted-foreground text-sm"
-              >
-                Next round starting...
-              </motion.p>
-            </div>
-          </div>
-        )}
 
         {/* Round transition */}
         {showRoundTransition && matchDetail && (
