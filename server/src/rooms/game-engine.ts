@@ -337,13 +337,17 @@ function isOrderedStraightFlush(cards: CardSchema[], wildRank: number): boolean 
   for (let i = 0; i < cards.length; i++) {
     if (isWild(cards[i]!, wildRank)) continue;
     if (suit === null) suit = cards[i]!.suit;
-    else if (cards[i]!.suit !== suit) return false;
+    else if (cards[i]!.suit !== suit) {
+      return false;
+    }
     if (firstNonWildIdx === -1) {
       firstNonWildIdx = i;
       firstNonWildRank = cards[i]!.rank;
     }
     const expected = firstNonWildRank + (i - firstNonWildIdx);
-    if (cards[i]!.rank !== expected) return false;
+    if (cards[i]!.rank !== expected) {
+      return false;
+    }
   }
   if (suit === null) return false;
   const startRank = firstNonWildRank - firstNonWildIdx;
@@ -459,11 +463,13 @@ export function addToMeld(
       )
     : false;
 
+  const proposedAddArr = position === "start" ? [card, ...found.cards] : [...found.cards, card];
+
   const orderOkAdd =
     !straight ||
     (position === "start"
-      ? isOrderedStraightFlush([card, ...found.cards], state.wildRank)
-      : isOrderedStraightFlush([...found.cards, card], state.wildRank));
+      ? isOrderedStraightFlush(proposedAddArr, state.wildRank)
+      : isOrderedStraightFlush(proposedAddArr, state.wildRank));
 
   const orderOkSwap =
     !straight ||
@@ -492,6 +498,7 @@ export function addToMeld(
     }
   }
 
+
   if (canAdd && orderOkAdd && canSwap && orderOkSwap && preferSwap === undefined) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
@@ -508,7 +515,12 @@ export function addToMeld(
     card.meldGroupId = meldGroupId;
     if (straight && wildInMeld) {
       const wildIdx = found.owner.board.findIndex((c) => c === wildInMeld);
-      found.owner.board.splice(wildIdx, 1, card);
+      const arr: CardSchema[] = [];
+      for (const c of found.owner.board) arr.push(c);
+      arr[wildIdx] = card;
+      for (let i = 0; i < arr.length; i++) {
+        found.owner.board[i] = arr[i]!;
+      }
     } else {
       found.owner.board.push(card);
       const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
@@ -549,7 +561,12 @@ export function addToMeld(
       card.meldGroupId = meldGroupId;
       if (straight && wildInMeld) {
         const wildIdx = found.owner.board.findIndex((c) => c === wildInMeld);
-        found.owner.board.splice(wildIdx, 1, card);
+        const arr: CardSchema[] = [];
+        for (const c of found.owner.board) arr.push(c);
+        arr[wildIdx] = card;
+        for (let i = 0; i < arr.length; i++) {
+          found.owner.board[i] = arr[i]!;
+        }
       } else {
         found.owner.board.push(card);
         const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
@@ -641,7 +658,12 @@ export function swapWild(
   const straight = isStraightM;
   replacement.meldGroupId = meldGroupId;
   if (straight) {
-    owner.board.splice(boardIdx, 1, replacement);
+    const arr: CardSchema[] = [];
+    for (const c of owner.board) arr.push(c);
+    arr[boardIdx] = replacement;
+    for (let i = 0; i < arr.length; i++) {
+      owner.board[i] = arr[i]!;
+    }
   } else {
     owner.board.splice(boardIdx, 1);
     owner.board.push(replacement);

@@ -865,6 +865,56 @@ describe("addToMeld", () => {
     expect(p1.board[4]!.rank).toBe(8);
   });
 
+  it("swap left wild with 8 then append A to (6,7,A,9,A,J,Q) wild=1", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 6, suit: 0 },
+      { rank: 7, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 11, suit: 0 },
+      { rank: 12, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 1, suit: 2 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3, 4, 5, 6]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(7);
+
+    // Verify the board order [6,7,A,9,A,J,Q]
+    expect(p1.board[0]!.rank).toBe(6);
+    expect(p1.board[1]!.rank).toBe(7);
+    expect(p1.board[2]!.rank).toBe(1);
+    expect(p1.board[3]!.rank).toBe(9);
+
+    // Swap left wild (at meldCardIndex 2) with 8 via swapWild
+    swapWild(state, "s1", gid, 2, 0);
+    expect(p1.board.length).toBe(7);
+    // Board should now be [6, 7, 8, 9, A, J, Q]
+    expect(p1.board[2]!.rank).toBe(8); // 8 replaces wild at position 2
+    expect(p1.board[3]!.rank).toBe(9);
+    expect(p1.board[4]!.rank).toBe(1); // other wild still at position 4
+
+    // Now append A to the LEFT
+    const handIdx = p1.hand.findIndex((c) => c.rank === 1);
+    addToMeld(state, "s1", handIdx, gid, false, "start");
+    expect(p1.board.length).toBe(8);
+    expect(p1.board[0]!.rank).toBe(1); // A at the start
+  });
+
   it("adds a card to a straight flush meld at the end position", () => {
     const state = createGameState();
     state.status = "playing";
