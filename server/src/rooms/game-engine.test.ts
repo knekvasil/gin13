@@ -715,6 +715,51 @@ describe("addToMeld", () => {
     expect(p1.board[4]!.rank).toBe(12);
   });
 
+  it("allows adding 9 left then another wild left of (10,J,W,K) with wild=2", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 2;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 10, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 2, suit: 0 },
+      { rank: 13, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 2, suit: 1 },
+    ]);
+    state.players.push(p1);
+
+    // Create [10, J, W(2), K]
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(4);
+    expect(p1.hand.length).toBe(2);
+
+    // First modification: add 9 to the LEFT → [9, 10, J, W, K]
+    addToMeld(state, "s1", 0, gid, false, "start");
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[0]!.rank).toBe(9);
+    expect(p1.board[1]!.rank).toBe(10);
+
+    // Second modification: add another wild to the LEFT → [W, 9, 10, J, W, K]
+    addToMeld(state, "s1", 0, gid, false, "start");
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[0]!.rank).toBe(2); // new wild at position 0
+    expect(p1.board[1]!.rank).toBe(9);
+    expect(p1.board[2]!.rank).toBe(10);
+    expect(p1.board[3]!.rank).toBe(11);
+    expect(p1.board[4]!.rank).toBe(2); // existing wild
+    expect(p1.board[5]!.rank).toBe(13);
+  });
+
   it("adds a card to a straight flush meld at the end position", () => {
     const state = createGameState();
     state.status = "playing";

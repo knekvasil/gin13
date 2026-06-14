@@ -32,9 +32,9 @@ function InsertSlot({ meldGroupId, position }: { meldGroupId: string; position: 
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center transition-colors ${isOver ? "text-green-500" : "text-muted-foreground"}`}
+      className={`flex items-center justify-center p-2 rounded-md transition-colors ${isOver ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
         {position === "start" ? (
           <polyline points="15 18 9 12 15 6" />
         ) : (
