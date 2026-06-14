@@ -52,10 +52,12 @@ export class GameRoom extends Room<GameState> {
 
     this.setMetadata({ totalRounds, players: 0 });
 
+    const botNames = ["Alpha","Beta","Gamma","Delta","Echo","Foxtrot","Golf","Hotel","India","Juliett","Kilo","Lima"];
     const botCount = options.bots ?? 0;
     for (let i = 0; i < botCount; i++) {
-      const botId = `bot_${i}`;
-      const botName = `Bot ${i + 1}`;
+      const profileIdx = (this.state.players.length - botCount + i) % 12;
+      const botId = `bot_${profileIdx}`;
+      const botName = botNames[profileIdx]!;
 
       const bot = new Player();
       bot.sessionId = botId;
@@ -69,12 +71,12 @@ export class GameRoom extends Room<GameState> {
       this.state.players.push(bot);
 
       // Ensure bot has a database profile
+      // Bot user should already exist from seed; upsert as safety
       await prisma.user.upsert({
         where: { id: botId },
-        update: { displayName: botName },
+        update: {},
         create: {
           id: botId,
-          email: `${botId}@gin13.game`,
           passwordHash: "",
           displayName: botName,
         },

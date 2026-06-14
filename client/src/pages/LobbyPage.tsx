@@ -144,12 +144,12 @@ export default function LobbyPage() {
 		} catch { }
 	}, []);
 
-	const handlePractice = useCallback(async () => {
+	const handlePractice = useCallback(async (bots: number) => {
 		const c = clientRef.current;
 		const token = localStorage.getItem("jwt");
 		if (!c || !token) return;
 		try {
-			const room = await c.create("game_room", { totalRounds: 13, bots: 2 });
+			const room = await c.create("game_room", { totalRounds: 13, bots });
 			navigate(`/game/${room.roomId}`);
 			room.leave();
 		} catch (err) {
@@ -217,9 +217,14 @@ export default function LobbyPage() {
 				<Button variant="outline" onClick={() => setShowCreate((v) => !v)}>
 					Create Room
 				</Button>
-				<Button variant="secondary" onClick={handlePractice}>
-					Practice vs Bots
-				</Button>
+				<div className="flex items-center gap-1">
+					<Button variant="secondary" onClick={() => handlePractice(2)}>
+						Practice vs 2 Bots
+					</Button>
+					<Button variant="secondary" onClick={() => handlePractice(3)}>
+						3 Bots
+					</Button>
+				</div>
 				<Button variant="ghost" size="sm" onClick={() => navigate("/how-to")}>
 					How to Play
 				</Button>
