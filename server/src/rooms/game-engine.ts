@@ -519,6 +519,18 @@ export function addToMeld(
     return;
   }
 
+  // preferSwap=true but swap failed — fall through to add if possible
+  if (preferSwap === true && canAdd && orderOkAdd) {
+    player.hand.splice(cardIndex, 1)[0];
+    card.meldGroupId = meldGroupId;
+    if (straight && position === "start") {
+      found.owner.board.unshift(card);
+    } else {
+      found.owner.board.push(card);
+    }
+    return;
+  }
+
   if (preferSwap !== true && canAdd && orderOkAdd) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;

@@ -799,6 +799,72 @@ describe("addToMeld", () => {
     expect(p1.board[5]!.rank).toBe(5); // new wild
   });
 
+  it("adds 8 to the right of (4,5,J,J) with wild=11", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 11;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 4, suit: 0 },
+      { rank: 5, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 11, suit: 1 },
+      { rank: 8, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(4);
+    expect(p1.hand.length).toBe(1);
+
+    // Add 8 to the right — via add_to_meld (position end)
+    addToMeld(state, "s1", 0, gid, false, "end");
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[0]!.rank).toBe(4);
+    expect(p1.board[1]!.rank).toBe(5);
+    expect(p1.board[4]!.rank).toBe(8);
+  });
+
+  it("add_to_meld with preferSwap=true falls through to add when swap fails", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 11;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 4, suit: 0 },
+      { rank: 5, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 11, suit: 1 },
+      { rank: 8, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const gid = p1.board[0]!.meldGroupId;
+
+    // Dropping 8 on a wild card sends preferSwap=true
+    // Swap would fail (can't replace wild with 8 and keep a valid straight)
+    // Should fall through to add (append 8 at the end)
+    addToMeld(state, "s1", 0, gid, true);
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[4]!.rank).toBe(8);
+  });
+
   it("adds a card to a straight flush meld at the end position", () => {
     const state = createGameState();
     state.status = "playing";
