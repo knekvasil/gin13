@@ -390,14 +390,21 @@ export default function GameRoomPage() {
     if (error) toast.error(error);
   }, [error]);
 
+  // Celebration starts immediately when round ends (server holds phase for 2s)
+  useEffect(() => {
+    if (phase === "round_ended" && status === "playing") {
+      setShowCelebration(true);
+    }
+  }, [phase, status]);
+
+  // Transition appears after the server's 2s delay launches the next round
   useEffect(() => {
     if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
       handledRoundRef.current = currentRound;
-      setShowCelebration(true);
       celebrationTimerRef.current = setTimeout(() => {
         setShowCelebration(false);
         setShowRoundTransition(true);
-      }, 2000);
+      }, 500);
     }
     return () => {
       if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);

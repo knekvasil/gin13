@@ -132,6 +132,8 @@ export class GameRoom extends Room<GameState> {
 
       if (this.state.phase === "round_ended") {
         await this.persistRoundResults();
+        // Let clients see the round_ended board state for celebration animations
+        await new Promise((r) => setTimeout(r, 2000));
         startNextRound(this.state);
       }
 
