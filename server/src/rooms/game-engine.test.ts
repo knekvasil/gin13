@@ -1179,7 +1179,7 @@ describe("swapWild", () => {
     expect(p1.hand.some((c) => c.rank === 1)).toBe(true); // wild returned
   });
 
-  it("swapWild allows disordered sequence (no ordered check in swapWild)", () => {
+  it("rejects swapWild that would create a disordered straight", () => {
     const state = createGameState();
     state.status = "playing";
     state.phase = "main_phase";
@@ -1205,13 +1205,10 @@ describe("swapWild", () => {
     const gid = p1.board[0]!.meldGroupId;
 
     // Swap the FIRST wild (index 0) with Q:
-    // After: [Q(12), J(11), W, K] → set {11,12,13} + wild = valid canMeld
-    // But ordered sequence [12, 11, 1, 13] is not consecutive
-    // swapWild uses canMeld (order-agnostic) → accepts
-    swapWild(state, "s1", gid, 0, 0);
+    // Ordered sequence [Q(12), J(11), W, K] is [12, 11, 1, 13] — not consecutive
+    // swapWild now checks ordered straight → rejects
+    expect(() => swapWild(state, "s1", gid, 0, 0)).toThrow("Invalid manipulation");
     expect(p1.board.length).toBe(4);
-    // swapWild removes wild and pushes replacement at end (no position preservation)
-    expect(p1.board.some((c) => c.rank === 12)).toBe(true); // Q is on board
   });
 });
 

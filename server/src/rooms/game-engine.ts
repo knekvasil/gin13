@@ -610,12 +610,23 @@ export function swapWild(
     throw new Error("Invalid manipulation");
   }
 
+  // For straights, the replacement must preserve the ordered sequence
+  const isStraightM = isValidStraightFlush(meldCards, state.wildRank) && !isValidSet(meldCards, state.wildRank);
+  if (isStraightM) {
+    const ordered = [...meldCards];
+    ordered[meldCardIndex] = replacement;
+    if (!isOrderedStraightFlush(ordered, state.wildRank)) {
+      player.hand.push(replacement);
+      throw new Error("Invalid manipulation");
+    }
+  }
+
   checkSetConflict(state, newMeldCards, meldGroupId, state.wildRank);
 
   const boardIdx = owner.board.findIndex((c) => c === wildCard);
   if (boardIdx === -1) throw new Error("Wild card not found on board");
 
-  const straight = isValidStraightFlush(meldCards, state.wildRank) && !isValidSet(meldCards, state.wildRank);
+  const straight = isStraightM;
   replacement.meldGroupId = meldGroupId;
   if (straight) {
     owner.board.splice(boardIdx, 1, replacement);
