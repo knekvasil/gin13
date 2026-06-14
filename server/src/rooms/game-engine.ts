@@ -682,6 +682,26 @@ function cardPoints(card: CardSchema, wildRank: number): number {
   return card.rank === wildRank ? 25 : Math.max(card.rank, 10);
 }
 
+function arrangeStraight(cards: CardSchema[], wildRank: number): CardSchema[] {
+  const nonWild = cards.filter((c) => !isWild(c, wildRank)).sort((a, b) => a.rank - b.rank);
+  const wilds = cards.filter((c) => isWild(c, wildRank));
+  const result: CardSchema[] = [];
+  let wi = 0;
+  let nextRank = nonWild[0]!.rank;
+  for (const nw of nonWild) {
+    while (nextRank < nw.rank && wi < wilds.length) {
+      result.push(wilds[wi++]!);
+      nextRank++;
+    }
+    result.push(nw);
+    nextRank = nw.rank + 1;
+  }
+  while (wi < wilds.length) {
+    result.push(wilds[wi++]!);
+  }
+  return result;
+}
+
 function bestMeld(
   hand: CardSchema[],
   wildRank: number,
@@ -698,14 +718,14 @@ function bestMeld(
     for (const subset of getSubsets(indices, size)) {
       const cards = subset.map((i) => hand[i]!);
       if (!canMeld(cards, wildRank)) continue;
+      const arranged = (isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank))
+        ? arrangeStraight(cards, wildRank)
+        : cards;
+      if (isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank) && !isOrderedStraightFlush(arranged, wildRank)) continue;
       const score = cards.reduce((s, c) => s + cardPoints(c, wildRank), 0);
       if (score > bestScore) {
-        // Sort by rank for straight flushes so board order is correct
-        const sorted = (isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank))
-          ? [...cards].sort((a, b) => a.rank - b.rank)
-          : cards;
         bestScore = score;
-        best = { meld: sorted, groupId: null, swapFromGroup: null, swapCard: null };
+        best = { meld: arranged, groupId: null, swapFromGroup: null, swapCard: null };
       }
     }
   }
