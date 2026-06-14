@@ -155,7 +155,9 @@ export function drawFromDeck(state: GameState, sessionId: string): void {
   if (!card) throw new Error("Draw pile is empty");
 
   card.meldGroupId = "";
-  getCurrentPlayer(state).hand.push(card);
+  const p1 = getCurrentPlayer(state);
+  if (!p1) throw new Error("No current player");
+  p1.hand.push(card);
   state.phase = "main_phase";
 }
 
@@ -166,8 +168,9 @@ export function drawFromDiscard(state: GameState, sessionId: string): void {
   const card = state.discardPile.pop();
   if (!card) throw new Error("Discard pile is empty");
 
-  card.meldGroupId = "";
-  getCurrentPlayer(state).hand.push(card);
+  const p2 = getCurrentPlayer(state);
+  if (!p2) throw new Error("No current player");
+  p2.hand.push(card);
   state.phase = "main_phase";
 }
 
@@ -866,11 +869,15 @@ export function botPlayTurn(state: GameState): void {
 }
 
 export function autoPlayTurn(state: GameState): void {
+  const idx = state.currentPlayerIndex;
+  if (idx < 0 || idx >= state.players.length) return;
+  const player = state.players[idx]!;
+
   if (state.phase === "draw") {
     const card = state.drawPile.pop();
     if (card) {
       card.meldGroupId = "";
-      getCurrentPlayer(state).hand.push(card);
+      player.hand.push(card);
     }
     state.phase = "main_phase";
   }
@@ -880,7 +887,6 @@ export function autoPlayTurn(state: GameState): void {
   }
 
   if (state.phase === "discard") {
-    const player = getCurrentPlayer(state);
     if (player.hand.length > 0) {
       const idx = getHighestPointCardIndex(player, state.wildRank);
       const card = player.hand.splice(idx, 1)[0];
