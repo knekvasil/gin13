@@ -41,6 +41,11 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -94,9 +99,6 @@ export default function LobbyPage() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 	const [rooms, setRooms] = useState<RoomEntry[]>([]);
-	const [showCreate, setShowCreate] = useState(false);
-	const [roundCount, setRoundCount] = useState(13);
-	const [creating, setCreating] = useState(false);
 	const clientRef = useRef<Client | null>(null);
 	const [friendTab, setFriendTab] = useState<"friends" | "rivals">("friends");
 	const [searchQ, setSearchQ] = useState("");
@@ -157,21 +159,6 @@ export default function LobbyPage() {
 		}
 	}, [navigate]);
 
-	const handleCreate = useCallback(async () => {
-		const c = clientRef.current;
-		const token = localStorage.getItem("jwt");
-		if (!c || !token || creating) return;
-		setCreating(true);
-		try {
-			const room = await c.create("game_room", { totalRounds: roundCount });
-			navigate(`/game/${room.roomId}`);
-			room.leave();
-		} catch (err) {
-			console.error("create room failed", err);
-			setCreating(false);
-		}
-	}, [roundCount, navigate, creating]);
-
 	const handleQuickPlay = useCallback(async () => {
 		const c = clientRef.current;
 		const token = localStorage.getItem("jwt");
@@ -213,38 +200,76 @@ export default function LobbyPage() {
 		<div className="mx-auto max-w-6xl space-y-4">
 			{/* Action bar */}
 			<div className="flex flex-wrap items-center gap-2">
-				<Button onClick={handleQuickPlay}>Quick Play</Button>
-				<Button variant="outline" onClick={() => setShowCreate((v) => !v)}>
-					Create Room
-				</Button>
-				<div className="flex items-center gap-1">
-					<Button variant="secondary" onClick={() => handlePractice(2)}>
-						Practice vs 2 Bots
-					</Button>
-					<Button variant="secondary" onClick={() => handlePractice(3)}>
-						3 Bots
-					</Button>
-				</div>
-				<Button variant="ghost" size="sm" onClick={() => navigate("/how-to")}>
-					How to Play
-				</Button>
-				{showCreate && (
-					<div className="flex items-center gap-2">
-						<Input
-							id="rounds"
-							type="number"
-							min={1}
-							max={13}
-							value={roundCount}
-							onChange={(e) => setRoundCount(Number(e.target.value))}
-							className="h-7 w-16"
-							aria-label="Number of rounds"
-						/>
-						<Button size="sm" onClick={handleCreate} disabled={creating}>
-							Start
-						</Button>
-					</div>
-				)}
+				{(() => {
+					const [open, setOpen] = useState(false);
+					const [rounds, setRounds] = useState(13);
+					const [mode, setMode] = useState<"players" | "bots3" | "bots4">("players");
+					return (
+						<Popover open={open} onOpenChange={setOpen}>
+							<PopoverTrigger asChild>
+								<Button size="lg">Play Now</Button>
+							</PopoverTrigger>
+							<PopoverContent align="start" sideOffset={8} className="w-64 p-3">
+								<div className="space-y-3">
+									<div>
+										<p className="text-muted-foreground mb-1.5 text-[0.6rem] font-medium uppercase tracking-wider">Rounds</p>
+										<div className="grid grid-cols-4 gap-1">
+											{[1, 3, 5, 13].map((r) => (
+												<button
+													key={r}
+													onClick={() => setRounds(r)}
+													className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+														rounds === r
+															? "bg-primary text-primary-foreground"
+															: "bg-muted hover:bg-muted/80 text-foreground"
+													}`}
+												>
+													{r}
+												</button>
+											))}
+										</div>
+									</div>
+									<div>
+										<p className="text-muted-foreground mb-1.5 text-[0.6rem] font-medium uppercase tracking-wider">Opponents</p>
+										<div className="grid grid-cols-3 gap-1">
+											{[
+												{ value: "players" as const, label: "Players" },
+												{ value: "bots3" as const, label: "3 Bots" },
+												{ value: "bots4" as const, label: "4 Bots" },
+											].map((opt) => (
+												<button
+													key={opt.value}
+													onClick={() => setMode(opt.value)}
+													className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+														mode === opt.value
+															? "bg-primary text-primary-foreground"
+															: "bg-muted hover:bg-muted/80 text-foreground"
+													}`}
+												>
+													{opt.label}
+												</button>
+											))}
+										</div>
+									</div>
+									<Button
+										className="w-full"
+										size="sm"
+										onClick={() => {
+											setOpen(false);
+											if (mode === "players") {
+												handleQuickPlay();
+											} else {
+												handlePractice(mode === "bots3" ? 3 : 4);
+											}
+										}}
+									>
+										Start Game
+									</Button>
+								</div>
+							</PopoverContent>
+						</Popover>
+					);
+				})()}
 			</div>
 
 			{/* Row 1: My Stats + Records | Friends */}
@@ -635,8 +660,8 @@ export default function LobbyPage() {
 									<Button size="xs" onClick={handleQuickPlay}>
 										Quick Play
 									</Button>
-									<Button size="xs" variant="outline" onClick={() => setShowCreate((v) => !v)}>
-										Create Room
+									<Button size="xs" variant="outline" onClick={() => handlePractice(2)}>
+										Practice
 									</Button>
 								</span>
 							</div>
