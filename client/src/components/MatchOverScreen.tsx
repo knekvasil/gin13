@@ -5,16 +5,7 @@ import {
   YAxis,
   ResponsiveContainer,
 } from "recharts";
-import type { MatchDetail, MatchDetailPlayer, RoundScoreEntry } from "../stats/api";
-
-function computeCumulative(roundScores: RoundScoreEntry[], userId: string): { round: number; cumulative: number }[] {
-  let total = 0;
-  return roundScores.map((rs) => {
-    const entry = rs.scores.find((s) => s.userId === userId);
-    total += entry?.handScore ?? 0;
-    return { round: rs.roundNumber, cumulative: total };
-  });
-}
+import type { MatchDetail, MatchDetailPlayer } from "../stats/api";
 
 function roundLabel(wildRank: number): string {
   if (wildRank === 1) return "A";
@@ -70,6 +61,24 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
   const podiumPlayers = sortedPlayers.slice(0, 3);
   const tablePlayers = sortedPlayers;
 
+  const playerTotals: Record<string, number> = {};
+  const cumulativeData = roundScores.map((rs) => {
+    const point: Record<string, number | string> = { round: rs.roundNumber };
+    for (const s of rs.scores) {
+      playerTotals[s.userId] = (playerTotals[s.userId] ?? 0) + s.handScore;
+      point[s.userId] = playerTotals[s.userId];
+    }
+    return point;
+  });
+
+  const deltaData = roundScores.map((rs) => {
+    const point: Record<string, number | string> = { round: rs.roundNumber };
+    for (const s of rs.scores) {
+      point[s.userId] = s.handScore;
+    }
+    return point;
+  });
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Podium */}
@@ -122,15 +131,15 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
         </table>
       </div>
 
-      {/* Both charts side by side */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* Both charts stacked vertically */}
+      <div className="space-y-4">
         <div>
           <p className="text-muted-foreground mb-2 text-[0.65rem] font-medium uppercase tracking-wider">
             Cumulative Points
           </p>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart>
+              <LineChart data={cumulativeData}>
                 <XAxis
                   dataKey="round"
                   ticks={roundScores.map((r) => r.roundNumber)}
@@ -139,23 +148,19 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                {players.map((p, i) => {
-                  const data = computeCumulative(roundScores, p.userId);
-                  return (
-                    <Line
-                      key={p.userId}
-                      data={data}
-                      type="monotone"
-                      dataKey="cumulative"
-                      name={p.displayName}
-                      stroke={COLORS[i % COLORS.length]}
-                      strokeWidth={2}
-                      dot={false}
-                      connectNulls={false}
-                      activeDot={false}
-                    />
-                  );
-                })}
+                {players.map((p, i) => (
+                  <Line
+                    key={p.userId}
+                    type="monotone"
+                    dataKey={p.userId}
+                    name={p.displayName}
+                    stroke={COLORS[i % COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                    activeDot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -166,7 +171,7 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
           </p>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart>
+              <LineChart data={deltaData}>
                 <XAxis
                   dataKey="round"
                   ticks={roundScores.map((r) => r.roundNumber)}
@@ -175,26 +180,19 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                {players.map((p, i) => {
-                  const data = roundScores.map((rs) => {
-                    const entry = rs.scores.find((s) => s.userId === p.userId);
-                    return { round: rs.roundNumber, delta: entry?.handScore ?? 0 };
-                  });
-                  return (
-                    <Line
-                      key={p.userId}
-                      data={data}
-                      type="monotone"
-                      dataKey="delta"
-                      name={p.displayName}
-                      stroke={COLORS[i % COLORS.length]}
-                      strokeWidth={2}
-                      dot={{ r: 2 }}
-                      connectNulls={false}
-                      activeDot={false}
-                    />
-                  );
-                })}
+                {players.map((p, i) => (
+                  <Line
+                    key={p.userId}
+                    type="monotone"
+                    dataKey={p.userId}
+                    name={p.displayName}
+                    stroke={COLORS[i % COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 2 }}
+                    connectNulls={false}
+                    activeDot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>

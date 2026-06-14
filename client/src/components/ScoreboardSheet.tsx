@@ -16,29 +16,6 @@ import { BarChart3, Sun, Moon } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import type { MatchDetail } from "../stats/api";
 
-function computeCumulative(
-  roundScores: MatchDetail["roundScores"],
-  userId: string,
-  totalRounds: number,
-): { round: number; cumulative: number }[] {
-  let total = 0;
-  const played = new Map<number, number>();
-  for (const rs of roundScores) {
-    const entry = rs.scores.find((s) => s.userId === userId);
-    total += entry?.handScore ?? 0;
-    played.set(rs.roundNumber, total);
-  }
-  const result: { round: number; cumulative: number }[] = [];
-  for (let r = 1; r <= totalRounds; r++) {
-    if (played.has(r)) {
-      result.push({ round: r, cumulative: played.get(r)! });
-    } else {
-      result.push({ round: r, cumulative: total });
-    }
-  }
-  return result;
-}
-
 function roundLabelForWildRank(wildRank: number): string {
   if (wildRank === 1) return "A";
   if (wildRank === 11) return "J";
@@ -75,6 +52,36 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
   function playedRound(rn: number) {
     return roundScores.find((rs) => rs.roundNumber === rn);
   }
+
+  const playerTotals: Record<string, number> = {};
+  const cumulativeChartData = roundNumbers.map((rn) => {
+    const pr = playedRound(rn);
+    const point: Record<string, number | string | null> = { round: rn };
+    for (const p of players) {
+      if (pr) {
+        const entry = pr.scores.find((s) => s.userId === p.userId);
+        if (entry) playerTotals[p.userId] = (playerTotals[p.userId] ?? 0) + entry.handScore;
+        point[p.userId] = playerTotals[p.userId] ?? null;
+      } else {
+        point[p.userId] = null;
+      }
+    }
+    return point;
+  });
+
+  const deltaChartData = roundNumbers.map((rn) => {
+    const pr = playedRound(rn);
+    const point: Record<string, number | string | null> = { round: rn };
+    for (const p of players) {
+      if (pr) {
+        const entry = pr.scores.find((s) => s.userId === p.userId);
+        point[p.userId] = entry?.handScore ?? null;
+      } else {
+        point[p.userId] = null;
+      }
+    }
+    return point;
+  });
 
   return (
     <div className="fixed right-2 top-2 z-40 flex gap-1">
@@ -155,7 +162,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
             </p>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart>
+                <LineChart data={cumulativeChartData} margin={{ left: -8, right: 12, top: 4, bottom: 4 }}>
                   <XAxis
                     dataKey="round"
                     ticks={roundNumbers}
@@ -163,24 +170,20 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  {players.map((p, i) => {
-                    const data = computeCumulative(roundScores, p.userId, totalRounds);
-                    return (
-                      <Line
-                        key={p.userId}
-                        data={data}
-                        type="monotone"
-                        dataKey="cumulative"
-                        name={p.displayName}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={2}
-                        dot={false}
-                        connectNulls={false}
-                        activeDot={false}
-                      />
-                    );
-                  })}
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  {players.map((p, i) => (
+                    <Line
+                      key={p.userId}
+                      type="monotone"
+                      dataKey={p.userId}
+                      name={p.displayName}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                      activeDot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -193,7 +196,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
             </p>
             <div className="h-40">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart>
+                <LineChart data={deltaChartData} margin={{ left: -8, right: 12, top: 4, bottom: 4 }}>
                   <XAxis
                     dataKey="round"
                     ticks={roundNumbers}
@@ -201,28 +204,20 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  {players.map((p, i) => {
-                    const data = roundNumbers.map((rn) => {
-                      const pr = playedRound(rn);
-                      const entry = pr?.scores.find((s) => s.userId === p.userId);
-                      return { round: rn, delta: entry?.handScore ?? 0 };
-                    });
-                    return (
-                      <Line
-                        key={p.userId}
-                        data={data}
-                        type="monotone"
-                        dataKey="delta"
-                        name={p.displayName}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={2}
-                        dot={{ r: 2 }}
-                        connectNulls={false}
-                        activeDot={false}
-                      />
-                    );
-                  })}
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  {players.map((p, i) => (
+                    <Line
+                      key={p.userId}
+                      type="monotone"
+                      dataKey={p.userId}
+                      name={p.displayName}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                      connectNulls={false}
+                      activeDot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>

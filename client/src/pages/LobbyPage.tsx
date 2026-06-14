@@ -50,7 +50,6 @@ import { Input } from "../components/ui/input";
 import {
 	Card,
 	CardContent,
-	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "../components/ui/card";
@@ -373,11 +372,6 @@ export default function LobbyPage() {
 							</>
 						)}
 					</CardContent>
-					<CardFooter className="px-4 pt-0">
-						<Button variant="link" size="xs" onClick={() => navigate("/matches")}>
-							View full match history
-						</Button>
-					</CardFooter>
 				</Card>
 
 				{/* Friends / Rivals */}

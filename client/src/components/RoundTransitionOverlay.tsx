@@ -8,25 +8,6 @@ import {
 import { Button } from "../components/ui/button";
 import type { MatchDetail } from "../stats/api";
 
-function computeCumulative(
-  roundScores: MatchDetail["roundScores"],
-  userId: string,
-  totalRounds: number,
-): { round: number; cumulative: number }[] {
-  let total = 0;
-  const played = new Map<number, number>();
-  for (const rs of roundScores) {
-    const entry = rs.scores.find((s) => s.userId === userId);
-    total += entry?.handScore ?? 0;
-    played.set(rs.roundNumber, total);
-  }
-  const result: { round: number; cumulative: number }[] = [];
-  for (let r = 1; r <= totalRounds; r++) {
-    result.push({ round: r, cumulative: played.get(r) ?? total });
-  }
-  return result;
-}
-
 function roundLabelForRoundNumber(roundNum: number): string {
   const wildRank = roundNum % 13 || 13;
   if (wildRank === 1) return "A";
@@ -53,6 +34,36 @@ export default function RoundTransitionOverlay({
   const roundNumbers = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
   const sorted = [...playerCumulativeScores].sort((a, b) => a.cumulativeScore - b.cumulativeScore);
+
+  const playerTotals: Record<string, number> = {};
+  const cumulativeChartData = roundNumbers.map((rn) => {
+    const pr = roundScores.find((rs) => rs.roundNumber === rn);
+    const point: Record<string, number | string | null> = { round: rn };
+    for (const ps of playerCumulativeScores) {
+      if (pr) {
+        const entry = pr.scores.find((s) => s.userId === ps.userId);
+        if (entry) playerTotals[ps.userId] = (playerTotals[ps.userId] ?? 0) + entry.handScore;
+        point[ps.userId] = playerTotals[ps.userId] ?? null;
+      } else {
+        point[ps.userId] = null;
+      }
+    }
+    return point;
+  });
+
+  const deltaChartData = roundNumbers.map((rn) => {
+    const pr = roundScores.find((rs) => rs.roundNumber === rn);
+    const point: Record<string, number | string | null> = { round: rn };
+    for (const ps of playerCumulativeScores) {
+      if (pr) {
+        const entry = pr.scores.find((s) => s.userId === ps.userId);
+        point[ps.userId] = entry?.handScore ?? null;
+      } else {
+        point[ps.userId] = null;
+      }
+    }
+    return point;
+  });
   const podium = sorted.slice(0, 3);
 
   function getRoundScore(userId: string) {
@@ -146,15 +157,15 @@ export default function RoundTransitionOverlay({
           </table>
         </div>
 
-        {/* Both charts side by side */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Both charts stacked vertically */}
+        <div className="space-y-4">
           <div>
             <p className="text-muted-foreground mb-2 text-[0.65rem] font-medium uppercase tracking-wider">
               Cumulative Points
             </p>
             <div className="h-40">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart>
+                <LineChart data={cumulativeChartData} margin={{ left: -8, right: 12, top: 4, bottom: 4 }}>
                   <XAxis
                     dataKey="round"
                     ticks={roundNumbers}
@@ -162,24 +173,20 @@ export default function RoundTransitionOverlay({
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  {sorted.map((ps, i) => {
-                    const data = computeCumulative(roundScores, ps.userId, totalRounds);
-                    return (
-                      <Line
-                        key={ps.userId}
-                        data={data}
-                        type="monotone"
-                        dataKey="cumulative"
-                        name={ps.name}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={2}
-                        dot={false}
-                        connectNulls={false}
-                        activeDot={false}
-                      />
-                    );
-                  })}
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  {sorted.map((ps, i) => (
+                    <Line
+                      key={ps.userId}
+                      type="monotone"
+                      dataKey={ps.userId}
+                      name={ps.name}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                      activeDot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -190,7 +197,7 @@ export default function RoundTransitionOverlay({
             </p>
             <div className="h-40">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart>
+                <LineChart data={deltaChartData} margin={{ left: -8, right: 12, top: 4, bottom: 4 }}>
                   <XAxis
                     dataKey="round"
                     ticks={roundNumbers}
@@ -198,28 +205,20 @@ export default function RoundTransitionOverlay({
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  {sorted.map((ps, i) => {
-                    const data = roundNumbers.map((rn) => {
-                      const pr = playedRound(rn);
-                      const entry = pr?.scores.find((s) => s.userId === ps.userId);
-                      return { round: rn, delta: entry?.handScore ?? 0 };
-                    });
-                    return (
-                      <Line
-                        key={ps.userId}
-                        data={data}
-                        type="monotone"
-                        dataKey="delta"
-                        name={ps.name}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={2}
-                        dot={{ r: 2 }}
-                        connectNulls={false}
-                        activeDot={false}
-                      />
-                    );
-                  })}
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  {sorted.map((ps, i) => (
+                    <Line
+                      key={ps.userId}
+                      type="monotone"
+                      dataKey={ps.userId}
+                      name={ps.name}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                      connectNulls={false}
+                      activeDot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
