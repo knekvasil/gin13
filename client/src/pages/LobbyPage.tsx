@@ -144,6 +144,19 @@ export default function LobbyPage() {
 		} catch { }
 	}, []);
 
+	const handlePractice = useCallback(async () => {
+		const c = clientRef.current;
+		const token = localStorage.getItem("jwt");
+		if (!c || !token) return;
+		try {
+			const room = await c.create("game_room", { totalRounds: 13, bots: 2 });
+			navigate(`/game/${room.roomId}`);
+			room.leave();
+		} catch (err) {
+			console.error("practice room failed", err);
+		}
+	}, [navigate]);
+
 	const handleCreate = useCallback(async () => {
 		const c = clientRef.current;
 		const token = localStorage.getItem("jwt");
@@ -203,6 +216,9 @@ export default function LobbyPage() {
 				<Button onClick={handleQuickPlay}>Quick Play</Button>
 				<Button variant="outline" onClick={() => setShowCreate((v) => !v)}>
 					Create Room
+				</Button>
+				<Button variant="secondary" onClick={handlePractice}>
+					Practice vs Bots
 				</Button>
 				<Button variant="ghost" size="sm" onClick={() => navigate("/how-to")}>
 					How to Play

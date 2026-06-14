@@ -17,6 +17,7 @@ import {
   startNextRound,
   endMatch,
   autoPlayTurn,
+  botPlayTurn,
   calculateRoundScores,
 } from "./game-engine";
 import { ArraySchema } from "@colyseus/schema";
@@ -50,6 +51,21 @@ export class GameRoom extends Room<GameState> {
     });
 
     this.setMetadata({ totalRounds, players: 0 });
+
+    const botCount = options.bots ?? 0;
+    for (let i = 0; i < botCount; i++) {
+      const bot = new Player();
+      bot.sessionId = `bot_${i}`;
+      bot.userId = `bot_${i}`;
+      bot.name = `Bot ${i + 1}`;
+      bot.hand = new ArraySchema<CardSchema>();
+      bot.board = new ArraySchema<CardSchema>();
+      bot.score = 0;
+      bot.disconnected = false;
+      bot.isBot = true;
+      this.state.players.push(bot);
+      this.setMetadata({ totalRounds, players: this.state.players.length });
+    }
 
     this.onMessage("start_game", (_client) => {
       if (this.state.players.length < 2) return;
@@ -126,11 +142,17 @@ export class GameRoom extends Room<GameState> {
 
       if (
         this.state.status === "playing" &&
-        this.state.phase === "draw" &&
-        this.state.players[this.state.currentPlayerIndex]?.disconnected
+        this.state.phase === "draw"
       ) {
-        autoPlayTurn(this.state);
-        continue;
+        const current = this.state.players[this.state.currentPlayerIndex];
+        if (current?.disconnected) {
+          autoPlayTurn(this.state);
+          continue;
+        }
+        if (current?.isBot) {
+          botPlayTurn(this.state);
+          continue;
+        }
       }
 
       break;
@@ -262,6 +284,9 @@ export class GameRoom extends Room<GameState> {
     for (const entry of rankedPlayers) {
       const p: any = (entry as any).player;
       const rank: number = (entry as any).rank;
+
+      // Skip bot players (no database records)
+      if (p.userId.startsWith("bot_")) continue;
 
       const matchPlayer = await prisma.matchPlayer.findUnique({
         where: { matchId_userId: { matchId: this.roomId, userId: p.userId } },
@@ -396,6 +421,19 @@ export class GameRoom extends Room<GameState> {
       where: { id: client.auth.userId },
       data: { lastSeen: new Date() },
     }).catch(() => {});
+
+    // Auto-start if bots are present
+    if (this.state.players.some((p) => p.isBot)) {
+      const humanCount = this.state.players.filter((p) => !p.isBot).length;
+      if (humanCount >= 1) {
+        setTimeout(() => {
+          if (this.state.status === "waiting") {
+            startGame(this.state);
+            this.afterTurnAction().catch(() => {});
+          }
+        }, 500);
+      }
+    }
   }
 
   onLeave(client: any) {

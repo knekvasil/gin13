@@ -669,6 +669,178 @@ function getHighestPointCardIndex(player: Player, wildRank: number): number {
   return highestIdx;
 }
 
+function getSubsets(arr: number[], size: number): number[][] {
+  if (size === 0) return [[]];
+  if (arr.length < size) return [];
+  const [first, ...rest] = arr;
+  const withFirst = getSubsets(rest, size - 1).map((s) => [first!, ...s]);
+  const withoutFirst = getSubsets(rest, size);
+  return [...withFirst, ...withoutFirst];
+}
+
+function cardPoints(card: CardSchema, wildRank: number): number {
+  return card.rank === wildRank ? 25 : Math.max(card.rank, 10);
+}
+
+function bestMeld(
+  hand: CardSchema[],
+  wildRank: number,
+  existingMelds: CardSchema[][],
+  meldGroupIds: string[],
+  wildRankVal: number,
+): { meld: CardSchema[]; groupId: string | null; swapFromGroup: string | null; swapCard: CardSchema | null } | null {
+  let best: { meld: CardSchema[]; groupId: string | null; swapFromGroup: string | null; swapCard: CardSchema | null } | null = null;
+  let bestScore = -1;
+
+  // 1. Try creating a new meld from hand
+  const indices = hand.map((_, i) => i);
+  for (let size = 7; size >= 3; size--) {
+    for (const subset of getSubsets(indices, size)) {
+      const cards = subset.map((i) => hand[i]!);
+      if (!canMeld(cards, wildRank)) continue;
+      const score = cards.reduce((s, c) => s + cardPoints(c, wildRank), 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = { meld: cards, groupId: null, swapFromGroup: null, swapCard: null };
+      }
+    }
+  }
+
+  // 2. Try adding to existing melds
+  for (let hi = 0; hi < hand.length; hi++) {
+    for (let mi = 0; mi < existingMelds.length; mi++) {
+      const meld = existingMelds[mi]!;
+      const card = hand[hi]!;
+      if (canMeld([...meld, card], wildRank)) {
+        const score = cardPoints(card, wildRank);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { meld: [card], groupId: meldGroupIds[mi]!, swapFromGroup: null, swapCard: null };
+        }
+      }
+      // 3. Try swapping wilds
+      const wildInMeld = meld.find((c) => isWild(c, wildRank));
+      if (wildInMeld && !isWild(card, wildRank)) {
+        const replaced = meld.filter((c) => c !== wildInMeld).concat(card);
+        if (canMeld(replaced, wildRank)) {
+          const score = cardPoints(card, wildRank);
+          if (score > bestScore) {
+            bestScore = score;
+            best = { meld: [card], groupId: meldGroupIds[mi]!, swapFromGroup: meldGroupIds[mi]!, swapCard: wildInMeld };
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+export function botPlayTurn(state: GameState): void {
+  const player = getCurrentPlayer(state);
+  const wr = state.wildRank;
+
+  // 1. Draw from deck
+  if (state.phase === "draw") {
+    const card = state.drawPile.pop();
+    if (card) {
+      card.meldGroupId = "";
+      player.hand.push(card);
+    }
+    state.phase = "main_phase";
+  }
+
+  // 2. Collect existing melds on the board (own + other players)
+  const existingMelds: CardSchema[][] = [];
+  const meldGroupIds: string[] = [];
+  const seenGroups = new Set<string>();
+  for (const p of state.players) {
+    for (const card of p.board) {
+      if (card.meldGroupId && !seenGroups.has(card.meldGroupId)) {
+        seenGroups.add(card.meldGroupId);
+        const group: CardSchema[] = [];
+        for (const c of p.board) {
+          if (c.meldGroupId === card.meldGroupId) group.push(c);
+        }
+        existingMelds.push(group);
+        meldGroupIds.push(card.meldGroupId);
+      }
+    }
+  }
+
+  // 3. Find and play the best move (loop to meld multiple times)
+  if (state.phase === "main_phase") {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const best = bestMeld(
+        player.hand.map((c) => c),
+        wr,
+        existingMelds,
+        meldGroupIds,
+        wr,
+      );
+
+      if (!best) break;
+
+      let ok = false;
+      if (best.groupId === null && !best.swapFromGroup) {
+        const indices = best.meld.map((c) => player.hand.findIndex((h) => h === c));
+        if (indices.every((i) => i >= 0)) {
+          try { meldCards(state, player.sessionId, indices); ok = true; } catch {}
+        }
+      } else if (best.groupId && !best.swapFromGroup) {
+        const hi = player.hand.findIndex((h) => h === best.meld[0]);
+        if (hi >= 0) {
+          try { addToMeld(state, player.sessionId, hi, best.groupId, false, "end"); ok = true; } catch {}
+        }
+      } else if (best.groupId && best.swapFromGroup && best.swapCard) {
+        const hi = player.hand.findIndex((h) => h === best.meld[0]);
+        const meldCardsList = existingMelds[meldGroupIds.indexOf(best.groupId)]!;
+        const wildIdx = meldCardsList.indexOf(best.swapCard);
+        if (hi >= 0 && wildIdx >= 0) {
+          try { swapWild(state, player.sessionId, best.groupId, wildIdx, hi); ok = true; } catch {}
+        }
+      }
+
+      if (!ok) break;
+
+      // After an action, update existingMelds since board changed
+      existingMelds.length = 0;
+      meldGroupIds.length = 0;
+      seenGroups.clear();
+      for (const p of state.players) {
+        for (const card of p.board) {
+          if (card.meldGroupId && !seenGroups.has(card.meldGroupId)) {
+            seenGroups.add(card.meldGroupId);
+            const group: CardSchema[] = [];
+            for (const c of p.board) {
+              if (c.meldGroupId === card.meldGroupId) group.push(c);
+            }
+            existingMelds.push(group);
+            meldGroupIds.push(card.meldGroupId);
+          }
+        }
+      }
+    }
+
+    state.phase = "discard";
+  }
+
+  // 4. Discard highest-point card
+  if (state.phase === "discard") {
+    if (player.hand.length > 0) {
+      const idx = getHighestPointCardIndex(player, wr);
+      const card = player.hand.splice(idx, 1)[0];
+      card.meldGroupId = "";
+      state.discardPile.push(card);
+    }
+    if (player.hand.length === 0) {
+      endRound(state);
+      return;
+    }
+    state.currentPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
+    state.phase = "draw";
+  }
+}
+
 export function autoPlayTurn(state: GameState): void {
   if (state.phase === "draw") {
     const card = state.drawPile.pop();

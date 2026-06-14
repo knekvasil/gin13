@@ -31,6 +31,7 @@ export class Player extends Schema {
   declare board: ArraySchema<CardSchema>;
   declare score: number;
   declare disconnected: boolean;
+  declare isBot: boolean;
 }
 defineTypes(Player, {
   sessionId: "string",
@@ -40,6 +41,7 @@ defineTypes(Player, {
   board: { array: CardSchema },
   score: "number",
   disconnected: "boolean",
+  isBot: "boolean",
 });
 
 export class GameState extends Schema {
