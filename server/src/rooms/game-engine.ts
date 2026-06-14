@@ -390,17 +390,25 @@ function checkSetConflict(
   meldGroupId: string,
   wildRank: number,
 ): void {
-  const setRank = cards.find((c) => !isWild(c, wildRank))?.rank;
-  if (!setRank) return;
+  const proposedRank = cards.find((c) => !isWild(c, wildRank))?.rank ?? wildRank;
+  const occupied = new Set<number>();
   for (const player of state.players) {
-    for (const other of player.board) {
-      if (other.meldGroupId === meldGroupId) continue;
-      if (other.meldGroupId === "") continue;
-      if (isWild(other, wildRank)) continue;
-      if (other.rank === setRank) {
-        throw new Error("A set of that rank already exists on the board");
+    const perMeld = new Map<string, { hasNonWild: boolean; nonWildRank: number | null }>();
+    for (const card of player.board) {
+      if (card.meldGroupId === "" || card.meldGroupId === meldGroupId) continue;
+      const e = perMeld.get(card.meldGroupId) ?? { hasNonWild: false, nonWildRank: null };
+      if (!isWild(card, wildRank)) {
+        e.hasNonWild = true;
+        if (e.nonWildRank === null) e.nonWildRank = card.rank;
       }
+      perMeld.set(card.meldGroupId, e);
     }
+    for (const [, e] of perMeld) {
+      occupied.add(e.hasNonWild ? e.nonWildRank! : wildRank);
+    }
+  }
+  if (occupied.has(proposedRank)) {
+    throw new Error("A set of that rank already exists on the board");
   }
 }
 
@@ -598,6 +606,8 @@ export function swapWild(
     player.hand.push(replacement);
     throw new Error("Invalid manipulation");
   }
+
+  checkSetConflict(state, newMeldCards, meldGroupId, state.wildRank);
 
   const boardIndex = owner.board.findIndex((c) => c === wildCard);
   if (boardIndex !== -1) {
