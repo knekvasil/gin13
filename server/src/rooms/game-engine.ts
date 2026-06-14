@@ -700,8 +700,12 @@ function bestMeld(
       if (!canMeld(cards, wildRank)) continue;
       const score = cards.reduce((s, c) => s + cardPoints(c, wildRank), 0);
       if (score > bestScore) {
+        // Sort by rank for straight flushes so board order is correct
+        const sorted = (isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank))
+          ? [...cards].sort((a, b) => a.rank - b.rank)
+          : cards;
         bestScore = score;
-        best = { meld: cards, groupId: null, swapFromGroup: null, swapCard: null };
+        best = { meld: sorted, groupId: null, swapFromGroup: null, swapCard: null };
       }
     }
   }

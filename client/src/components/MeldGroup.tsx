@@ -8,10 +8,10 @@ interface CardData {
   meldGroupId: string;
 }
 
-function WildCardSlot({ meldGroupId, wildIndex, children }: { meldGroupId: string; wildIndex: number; children: React.ReactNode }) {
+function WildCardSlot({ meldGroupId, wildIndex, meldCardIndex, children }: { meldGroupId: string; wildIndex: number; meldCardIndex: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `wild-${meldGroupId}-${wildIndex}`,
-    data: { type: "wild-card", meldGroupId, wildIndex },
+    data: { type: "wild-card", meldGroupId, wildIndex, meldCardIndex },
   });
   return (
     <div ref={setNodeRef} className="relative">
@@ -78,7 +78,7 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
 
     if (isWild && isActive) {
       return (
-        <WildCardSlot key={ci} meldGroupId={meldGroupId} wildIndex={wildCount - 1}>
+        <WildCardSlot key={ci} meldGroupId={meldGroupId} wildIndex={wildCount - 1} meldCardIndex={ci}>
           {cardEl}
         </WildCardSlot>
       );

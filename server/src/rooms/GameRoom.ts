@@ -150,6 +150,7 @@ export class GameRoom extends Room<GameState> {
           continue;
         }
         if (current?.isBot) {
+          await new Promise((r) => setTimeout(r, 1000));
           botPlayTurn(this.state);
           continue;
         }

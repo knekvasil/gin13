@@ -539,7 +539,7 @@ export default function GameRoomPage() {
       const handIndex = sourceData.handIndex as number;
       const dropData = over.data.current as Record<string, unknown> | undefined;
       const meldGroupId = dropData?.meldGroupId as string;
-      const meldCardIndex = dropData?.wildIndex as number;
+      const meldCardIndex = dropData?.meldCardIndex as number;
       if (!room || !canMeld) return;
       room.send("swap_wild", { meldGroupId, meldCardIndex, handCardIndex: handIndex });
       return;
