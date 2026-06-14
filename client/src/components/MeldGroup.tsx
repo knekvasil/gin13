@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useDroppable } from "@dnd-kit/core";
 import { isValidStraightFlush, isValidSet } from "../lib/card-utils";
 import AnimatedCard from "./AnimatedCard";
@@ -50,9 +51,10 @@ interface MeldGroupProps {
   wildRank: number;
   isOwn: boolean;
   isActive: boolean;
+  celebrating?: boolean;
 }
 
-export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActive }: MeldGroupProps) {
+export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActive, celebrating }: MeldGroupProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `meld-group-${meldGroupId}`,
     data: { type: "meld-group", meldGroupId },
@@ -76,14 +78,27 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
       />
     );
 
-    if (isWild && isActive) {
-      return (
-        <WildCardSlot key={ci} meldGroupId={meldGroupId} wildIndex={wildCount - 1} meldCardIndex={ci}>
-          {cardEl}
-        </WildCardSlot>
-      );
-    }
-    return <div key={ci}>{cardEl}</div>;
+    const inner = isWild && isActive ? (
+      <WildCardSlot key={ci} meldGroupId={meldGroupId} wildIndex={wildCount - 1} meldCardIndex={ci}>
+        {cardEl}
+      </WildCardSlot>
+    ) : (
+      <div key={ci}>{cardEl}</div>
+    );
+
+    return (
+      <motion.div
+        key={`${meldGroupId}-${ci}`}
+        initial={celebrating ? false : { scale: 0.8, opacity: 0 }}
+        animate={celebrating ? { y: [0, -6, 0] } : { scale: 1, opacity: 1 }}
+        transition={celebrating
+          ? { y: { duration: 0.3, repeat: Infinity, ease: "easeInOut", delay: ci * 0.08 } }
+          : { type: "spring", stiffness: 400, damping: 25, delay: ci * 0.05 }
+        }
+      >
+        {inner}
+      </motion.div>
+    );
   });
 
   return (

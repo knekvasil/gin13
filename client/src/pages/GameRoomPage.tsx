@@ -121,33 +121,35 @@ function PlayerChip({
 }
 
 function MeldsDisplay({
-  player, wildRank, getMeldGroups, isMeldActive,
+  player, wildRank, getMeldGroups, isMeldActive, celebrating,
 }: {
   player: PlayerState;
   wildRank: number;
   getMeldGroups: (p: PlayerState) => Map<string, CardData[]>;
   isMeldActive: boolean;
+  celebrating?: boolean;
 }) {
   const groups = getMeldGroups(player);
   if (groups.size === 0) return null;
   return (
     <div className="flex flex-col items-center gap-1">
       {[...groups].map(([meldGroupId, group]) => (
-        <MeldGroup
-          key={meldGroupId}
-          meldGroupId={meldGroupId}
-          cards={group}
-          wildRank={wildRank}
-          isOwn={false}
-          isActive={isMeldActive}
-        />
+                    <MeldGroup
+                      key={meldGroupId}
+                      meldGroupId={meldGroupId}
+                      cards={group}
+                      wildRank={wildRank}
+                      isOwn={false}
+                      isActive={isMeldActive}
+                      celebrating={celebrating}
+                    />
       ))}
     </div>
   );
 }
 
 function OpponentSection({
-  player, wildRank, getMeldGroups, isMeldActive, timerPct, isTurn, rank,
+  player, wildRank, getMeldGroups, isMeldActive, timerPct, isTurn, rank, celebrating,
 }: {
   player: PlayerState;
   wildRank: number;
@@ -156,6 +158,7 @@ function OpponentSection({
   timerPct?: number;
   isTurn?: boolean;
   rank?: number | null;
+  celebrating?: boolean;
 }) {
   return (
     <div className="flex flex-shrink-0 flex-col items-center gap-1 px-2 py-1.5">
@@ -165,7 +168,7 @@ function OpponentSection({
           <AnimatedCard key={i} faceDown small />
         ))}
       </div>
-      <MeldsDisplay player={player} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={isMeldActive} />
+      <MeldsDisplay player={player} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={isMeldActive} celebrating={celebrating} />
     </div>
   );
 }
@@ -234,6 +237,7 @@ export default function GameRoomPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [showRoundTransition, setShowRoundTransition] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const handledRoundRef = useRef(0);
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -386,10 +390,23 @@ export default function GameRoomPage() {
   }, [error]);
 
   useEffect(() => {
-    if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
-      setShowRoundTransition(true);
+    if (phase === "round_ended" && status === "playing" && currentRound > 0) {
+      setShowCelebration(true);
+      const timer = setTimeout(() => {
+        setShowCelebration(false);
+        setShowRoundTransition(true);
+      }, 4000);
+      return () => clearTimeout(timer);
     }
-  }, [currentRound, status]);
+  }, [phase, status, currentRound]);
+
+  useEffect(() => {
+    if (status === "playing" && currentRound > 0 && currentRound !== handledRoundRef.current) {
+      if (!showCelebration) {
+        setShowRoundTransition(true);
+      }
+    }
+  }, [currentRound, status, showCelebration]);
 
   if (error) {
     return (
@@ -621,6 +638,7 @@ export default function GameRoomPage() {
               timerPct={currentPlayer?.sessionId === topOpponent.sessionId ? timerPct : undefined}
               isTurn={currentPlayer?.sessionId === topOpponent.sessionId}
               rank={rankMap.get(topOpponent.sessionId)}
+              celebrating={showCelebration}
             />
           )}
 
@@ -638,7 +656,7 @@ export default function GameRoomPage() {
                       <AnimatedCard key={i} faceDown small />
                     ))}
                   </div>
-                  <MeldsDisplay player={leftOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
+                  <MeldsDisplay player={leftOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} celebrating={showCelebration} />
                 </div>
               )}
 
@@ -651,7 +669,7 @@ export default function GameRoomPage() {
                       <AnimatedCard key={i} faceDown small />
                     ))}
                   </div>
-                  <MeldsDisplay player={rightOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} />
+                  <MeldsDisplay player={rightOpponent} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} celebrating={showCelebration} />
                 </div>
               )}
             </div>
@@ -709,6 +727,7 @@ export default function GameRoomPage() {
                     wildRank={wildRank}
                     isOwn
                     isActive={canAddToMeld}
+                    celebrating={showCelebration}
                   />
                 ))}
               </div>
@@ -754,6 +773,38 @@ export default function GameRoomPage() {
             <PlayerChip player={myPlayer ?? { sessionId: mySessionId, userId: "", name: "You", score: 0, disconnected: false, hand: [], board: [] }} isTurn={isMyTurn} timerPct={isMyTurn ? timerPct : undefined} rank={myPlayer ? rankMap.get(myPlayer.sessionId) : null} />
           </div>
         </div>
+
+        {/* Round celebration */}
+        {showCelebration && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="text-center space-y-4">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="text-6xl"
+              >
+                🔥
+              </motion.div>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-2xl font-bold text-white"
+              >
+                Round Complete!
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-muted-foreground text-sm"
+              >
+                Next round starting...
+              </motion.p>
+            </div>
+          </div>
+        )}
 
         {/* Round transition */}
         {showRoundTransition && matchDetail && (
