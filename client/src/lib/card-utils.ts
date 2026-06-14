@@ -48,6 +48,34 @@ export function canMeldCards(cards: { rank: number; suit: number }[], wildRank: 
   return isValidSet(cards, wildRank) || isValidStraightFlush(cards, wildRank);
 }
 
+export function isValidOrderedStraightFlush(cards: { rank: number; suit: number }[], wildRank: number): boolean {
+  if (cards.length < 4) return false;
+
+  let suit: number | null = null;
+  let firstNonWildIdx = -1;
+  let firstNonWildRank = 0;
+
+  for (let i = 0; i < cards.length; i++) {
+    if (isWild(cards[i], wildRank)) continue;
+    if (suit === null) suit = cards[i].suit;
+    else if (cards[i].suit !== suit) return false;
+    if (firstNonWildIdx === -1) {
+      firstNonWildIdx = i;
+      firstNonWildRank = cards[i].rank;
+    }
+    const expected = firstNonWildRank + (i - firstNonWildIdx);
+    if (cards[i].rank !== expected) return false;
+  }
+
+  return suit !== null;
+}
+
+export function canMeldCardsOrdered(cards: { rank: number; suit: number }[], wildRank: number): boolean {
+  if (cards.length < 3) return false;
+  if (isValidSet(cards, wildRank)) return true;
+  return isValidOrderedStraightFlush(cards, wildRank);
+}
+
 export function cardId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 }

@@ -8,7 +8,7 @@ import type { Room } from "colyseus.js";
 import {
   DndContext, DragOverlay, closestCorners,
   PointerSensor, TouchSensor, useSensor, useSensors,
-  type DragStartEvent, type DragEndEvent,
+  type DragStartEvent, type DragEndEvent, type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -243,6 +243,17 @@ export default function GameRoomPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
   );
+
+  const customCollision: CollisionDetection = (args) => {
+    const activeData = args.active.data.current as Record<string, unknown> | undefined;
+    if (activeData?.type === "hand") {
+      const filtered = args.droppableContainers.filter(
+        (c) => String(c.id) === "staging-well" || !String(c.id).startsWith("staging-"),
+      );
+      return closestCorners({ ...args, droppableContainers: filtered });
+    }
+    return closestCorners(args);
+  };
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -488,7 +499,17 @@ export default function GameRoomPage() {
       return;
     }
 
-    if (dropId === "staging-well" && sourceData.type === "hand") {
+    // Staging-to-staging reorder
+    if (sourceData.type === "staging" && dropId.startsWith("staging-")) {
+      const fromIdx = sourceData.stagingIndex as number;
+      const toIdx = parseInt(dropId.split("-")[1]);
+      if (fromIdx !== toIdx) {
+        setStagedCards((prev) => arrayMove(prev, fromIdx, toIdx));
+      }
+      return;
+    }
+
+    if (sourceData.type === "hand" && (dropId === "staging-well" || dropId.startsWith("staging-"))) {
       const handIndex = sourceData.handIndex as number;
       const card = getCardFromHand(handIndex);
       if (!card || !canMeld) return;
@@ -496,11 +517,14 @@ export default function GameRoomPage() {
       return;
     }
 
-    if (dropId.startsWith("meld-group-") && sourceData.type === "hand") {
+    if (sourceData.type === "hand" && (dropId.startsWith("meld-group-start-") || dropId.startsWith("meld-group-end-") || dropId.startsWith("meld-group-"))) {
       const handIndex = sourceData.handIndex as number;
       const meldGroupId = (over.data.current as Record<string, unknown> | undefined)?.meldGroupId as string;
       if (!room || !canMeld) return;
-      room.send("add_to_meld", { cardIndex: handIndex, meldGroupId, preferSwap: false });
+      let position: "start" | "end" | undefined;
+      if (dropId.startsWith("meld-group-start-")) position = "start";
+      else position = "end";
+      room.send("add_to_meld", { cardIndex: handIndex, meldGroupId, preferSwap: false, position });
       return;
     }
 
@@ -577,7 +601,7 @@ export default function GameRoomPage() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={customCollision}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

@@ -315,12 +315,18 @@ function findCardsInMeld(
   return null;
 }
 
+function isStraightMeld(cards: CardSchema[], wildRank: number): boolean {
+  if (cards.every((c) => isWild(c, wildRank))) return false;
+  return isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank);
+}
+
 export function addToMeld(
   state: GameState,
   sessionId: string,
   cardIndex: number,
   meldGroupId: string,
   preferSwap?: boolean,
+  position?: "start" | "end",
 ): void {
   assertPhase(state, "main_phase");
   assertCurrentPlayer(state, sessionId);
@@ -342,6 +348,7 @@ export function addToMeld(
     throw new Error("Meld not found");
   }
 
+  const straight = isStraightMeld(found.cards, state.wildRank);
   const wildInMeld = found.cards.find((c) => isWild(c, state.wildRank));
 
   const canAdd = canMeld([...found.cards, card], state.wildRank);
@@ -355,16 +362,25 @@ export function addToMeld(
   if (canAdd && canSwap && preferSwap === undefined) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
-    found.owner.board.push(card);
+    if (straight && position === "start") {
+      found.owner.board.unshift(card);
+    } else {
+      found.owner.board.push(card);
+    }
     return;
   }
 
   if (canSwap && (preferSwap === true || !canAdd)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
-    found.owner.board.push(card);
-    const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
-    if (boardIdx !== -1) found.owner.board.splice(boardIdx, 1);
+    if (straight && wildInMeld) {
+      const wildIdx = found.owner.board.findIndex((c) => c === wildInMeld);
+      found.owner.board.splice(wildIdx, 1, card);
+    } else {
+      found.owner.board.push(card);
+      const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
+      if (boardIdx !== -1) found.owner.board.splice(boardIdx, 1);
+    }
     wildInMeld!.meldGroupId = "";
     player.hand.push(wildInMeld!);
     return;
@@ -373,7 +389,11 @@ export function addToMeld(
   if (canAdd && (preferSwap === false || !canSwap)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
-    found.owner.board.push(card);
+    if (straight && position === "start") {
+      found.owner.board.unshift(card);
+    } else {
+      found.owner.board.push(card);
+    }
     return;
   }
 

@@ -1,11 +1,36 @@
 import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import AnimatedCard from "./AnimatedCard";
-import { canMeldCards } from "../lib/card-utils";
+import { canMeldCardsOrdered } from "../lib/card-utils";
 
 interface CardData {
   rank: number;
   suit: number;
   meldGroupId: string;
+}
+
+function SortableCard({ index, card, wildRank }: { index: number; card: CardData; wildRank: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `staging-${index}`,
+    data: { type: "staging", stagingIndex: index, rank: card.rank, suit: card.suit },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition: isDragging ? transition : 'none 0s', opacity: isDragging ? 0 : 1 }}
+      {...attributes}
+      {...listeners}
+    >
+      <AnimatedCard
+        rank={card.rank}
+        suit={card.suit}
+        wild={card.rank === wildRank}
+        small
+      />
+    </div>
+  );
 }
 
 interface StagingWellProps {
@@ -23,12 +48,12 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
     disabled: !isActive,
   });
 
-  const valid = cards.length >= 3 && canMeldCards(cards, wildRank);
+  const valid = cards.length >= 3 && canMeldCardsOrdered(cards, wildRank);
   const hasCards = cards.length > 0;
+  const stagingIds = cards.map((_, i) => `staging-${i}`);
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      {/* Action buttons above the box */}
       {hasCards && (
         <div className="flex gap-1.5">
           {valid && (
@@ -55,7 +80,6 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
         </div>
       )}
 
-      {/* Drop zone */}
       <div
         ref={setNodeRef}
         className={`flex min-w-14 min-h-20 items-center justify-center rounded-lg border-2 px-2 text-[11px] transition-all duration-150 ${
@@ -69,17 +93,11 @@ export default function StagingWell({ cards, wildRank, onPlay, onClear, isActive
         }`}
       >
         {hasCards ? (
-          cards.map((card, i) => (
-            <AnimatedCard
-              key={i}
-              rank={card.rank}
-              suit={card.suit}
-              wild={card.rank === wildRank}
-              layoutId={`card-${card.rank}-${card.suit}`}
-              dragId={`staging-${i}`}
-              dragData={{ type: "staging", stagingIndex: i, rank: card.rank, suit: card.suit }}
-            />
-          ))
+          <SortableContext items={stagingIds} strategy={horizontalListSortingStrategy}>
+            {cards.map((card, i) => (
+              <SortableCard key={`staging-${i}`} index={i} card={card} wildRank={wildRank} />
+            ))}
+          </SortableContext>
         ) : (
           <div className="text-muted-foreground flex flex-col items-center gap-0.5">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
