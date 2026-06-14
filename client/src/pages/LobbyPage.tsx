@@ -204,6 +204,9 @@ export default function LobbyPage() {
 				<Button variant="outline" onClick={() => setShowCreate((v) => !v)}>
 					Create Room
 				</Button>
+				<Button variant="ghost" size="sm" onClick={() => navigate("/how-to")}>
+					How to Play
+				</Button>
 				{showCreate && (
 					<div className="flex items-center gap-2">
 						<Input

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { ThemeProvider } from "./components/theme-provider";
 import { TooltipProvider } from "./components/ui/tooltip";
 import AppLayout from "./components/AppLayout";
+import HowToPage from "./pages/HowToPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import LobbyPage from "./pages/LobbyPage";
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="/leaderboard" element={<ProtectedRoute><NonGameLayout><LeaderboardPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/matches" element={<ProtectedRoute><NonGameLayout><MatchHistoryPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/match/:matchId" element={<ProtectedRoute><NonGameLayout><MatchDetailPage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/how-to" element={<NonGameLayout><HowToPage /></NonGameLayout>} />
             </Routes>
           </AuthProvider>
           </TooltipProvider>

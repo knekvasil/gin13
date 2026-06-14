@@ -1,7 +1,7 @@
 import { Toaster } from "../components/ui/sonner";
-import { Sun, Moon, LogOut, Settings, Inbox } from "lucide-react";
+import { Sun, Moon, LogOut, Settings, BookOpen, Inbox } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "./theme-provider";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "../components/ui/button";
@@ -87,6 +87,7 @@ function InboxPopover() {
 
 function UserMenu() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const initial = user?.displayName?.charAt(0)?.toUpperCase() ?? "?";
 
   return (
@@ -97,6 +98,10 @@ function UserMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-40">
+        <DropdownMenuItem onClick={() => navigate("/how-to")}>
+          <BookOpen className="mr-2 size-3.5" />
+          Tutorial
+        </DropdownMenuItem>
         <DropdownMenuItem disabled>
           <Settings className="mr-2 size-3.5" />
           Settings
