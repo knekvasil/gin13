@@ -612,13 +612,17 @@ export function swapWild(
 
   checkSetConflict(state, newMeldCards, meldGroupId, state.wildRank);
 
-  const boardIndex = owner.board.findIndex((c) => c === wildCard);
-  if (boardIndex !== -1) {
-    owner.board.splice(boardIndex, 1);
-  }
+  const boardIdx = owner.board.findIndex((c) => c === wildCard);
+  if (boardIdx === -1) throw new Error("Wild card not found on board");
 
+  const straight = isValidStraightFlush(meldCards, state.wildRank) && !isValidSet(meldCards, state.wildRank);
   replacement.meldGroupId = meldGroupId;
-  owner.board.push(replacement);
+  if (straight) {
+    owner.board.splice(boardIdx, 1, replacement);
+  } else {
+    owner.board.splice(boardIdx, 1);
+    owner.board.push(replacement);
+  }
 
   wildCard.meldGroupId = "";
   player.hand.push(wildCard);
