@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { SUIT_SYMBOLS, RANK_NAMES } from "../lib/card-utils";
 import { cn } from "../lib/utils";
@@ -60,9 +60,20 @@ function FaceDownCard({
     >
       {glow && <span className={cn("absolute inset-0 rounded-md ring-2 pointer-events-none", glow === "green" ? "ring-green-500/60 animate-pulse" : "ring-red-500/60 animate-pulse")} />}
       <span className={cn("text-white font-bold", small ? "text-base" : "text-2xl")}>?</span>
-      {badge != null && (
-        <span className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground">{badge}</span>
-      )}
+      <AnimatePresence mode="popLayout">
+        {badge != null && (
+          <motion.span
+            key={badge}
+            initial={{ scale: 1.3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground"
+          >
+            {badge}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -151,9 +162,20 @@ export default function AnimatedCard({
           W
         </span>
       )}
-      {badge != null && (
-        <span className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground">{badge}</span>
-      )}
+      <AnimatePresence mode="popLayout">
+        {badge != null && (
+          <motion.span
+            key={badge}
+            initial={{ scale: 1.3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="absolute bottom-1 right-1 rounded bg-card/80 px-0.5 text-[8px] font-semibold tabular-nums text-foreground"
+          >
+            {badge}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

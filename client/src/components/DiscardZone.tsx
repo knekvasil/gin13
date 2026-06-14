@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import { useDroppable } from "@dnd-kit/core";
 import AnimatedCard from "./AnimatedCard";
 
@@ -52,15 +53,25 @@ export default function DiscardZone({ discardPile, wildRank, isActive, onClick, 
             <line x1="14" y1="11" x2="14" y2="17" />
           </svg>
         )}
-        {topCard && (
-          <AnimatedCard
-            rank={topCard.rank}
-            suit={topCard.suit}
-            wild={topCard.rank === wildRank}
-            layoutId={`card-${topCard.rank}-${topCard.suit}`}
-            glow={activeGlow}
-          />
-        )}
+        <AnimatePresence mode="popLayout">
+          {topCard && (
+            <motion.div
+              key={discardPile.length}
+              initial={{ opacity: 0, y: -30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              layout
+            >
+              <AnimatedCard
+                rank={topCard.rank}
+                suit={topCard.suit}
+                wild={topCard.rank === wildRank}
+                glow={activeGlow}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       </div>
     </div>
