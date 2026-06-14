@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMatchDetail, type MatchDetail } from "../stats/api";
 import { useParams, useNavigate } from "react-router-dom";
@@ -186,21 +187,27 @@ function SortableHandCard({
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition: isDragging ? transition : 'none 0s', opacity: isDragging ? 0 : 1 }}
-      {...attributes}
-      {...listeners}
+    <motion.div
+      initial={{ opacity: 0, y: -24, scale: 0.85 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      <AnimatedCard
-        rank={card.rank}
-        suit={card.suit}
-        wild={card.rank === wildRank}
-        selected={selected}
-        onClick={onClick}
-        disabled={!canMeld && !canDiscard}
-      />
-    </div>
+      <div
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition: isDragging ? transition : 'none 0s', opacity: isDragging ? 0 : 1 }}
+        {...attributes}
+        {...listeners}
+      >
+        <AnimatedCard
+          rank={card.rank}
+          suit={card.suit}
+          wild={card.rank === wildRank}
+          selected={selected}
+          onClick={onClick}
+          disabled={!canMeld && !canDiscard}
+        />
+      </div>
+    </motion.div>
   );
 }
 
