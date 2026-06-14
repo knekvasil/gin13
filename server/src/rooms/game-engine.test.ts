@@ -559,6 +559,181 @@ describe("addToMeld", () => {
     }
   });
 
+  it("adds a card to a straight flush meld at the start position", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 6, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // Create straight: [A, 8, 9, 10, J] in board order
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    // Add 6 to the LEFT (start)
+    addToMeld(state, "s1", 0, meldGroupId, false, "start");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(0);
+    // Board should be: [6, A, 8, 9, 10, J] — wild at position 1 represents 7
+    expect(p1.board[0]!.rank).toBe(6);
+    expect(p1.board[1]!.rank).toBe(1);
+    expect(p1.board[2]!.rank).toBe(8);
+    expect(p1.board[3]!.rank).toBe(9);
+    expect(p1.board[4]!.rank).toBe(10);
+    expect(p1.board[5]!.rank).toBe(11);
+  });
+
+  it("adds a card to a straight flush meld at the end position", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 1, suit: 0 },
+      { rank: 6, suit: 0 },
+      { rank: 7, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // Create straight: [A, 6, 7, 8, 9] — wild at start represents 5
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+
+    // Add 10 to the RIGHT (end): (A,6,7,8,9,10) where A=5 is valid
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[0]!.rank).toBe(1);
+    expect(p1.board[1]!.rank).toBe(6);
+    expect(p1.board[2]!.rank).toBe(7);
+    expect(p1.board[3]!.rank).toBe(8);
+    expect(p1.board[4]!.rank).toBe(9);
+    expect(p1.board[5]!.rank).toBe(10);
+  });
+
+  it("accepts 8 on the right of (4,A,6,7)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 4, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 6, suit: 0 },
+      { rank: 7, suit: 0 },
+      { rank: 8, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[4]!.rank).toBe(8);
+  });
+
+  it("accepts 8 on the left of (9,10,A,Q)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 12, suit: 0 },
+      { rank: 8, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "start");
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[0]!.rank).toBe(8);
+  });
+
+  it("rejects 7 on the right of (8,9,10,A,Q) — broken ordered straight", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 10, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 12, suit: 0 },
+      { rank: 7, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    // Create straight: [8, 9, 10, A, 12(Q)]
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    // Try to add 7 to the RIGHT (end) — should be invalid because
+    // ordered sequence (8,9,10,A,12,7) is not consecutive
+    expect(() => addToMeld(state, "s1", 0, meldGroupId, false, "end")).toThrow("Invalid manipulation");
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+    // Q should still be in the meld
+    expect(p1.board.some((c) => c.rank === 12)).toBe(true);
+  });
+
   it("rejects adding a card that makes the meld invalid", () => {
     const state = createGameState();
     state.status = "playing";

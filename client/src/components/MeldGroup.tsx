@@ -59,19 +59,12 @@ export default function MeldGroup({ meldGroupId, cards, wildRank, isOwn, isActiv
     disabled: !isActive,
   });
 
-  const nonWild = cards.filter((c) => c.rank !== wildRank);
-  const wilds = cards.filter((c) => c.rank === wildRank);
-
   const isSet = isValidSet(cards, wildRank);
   const isStraight = !cards.every((c) => c.rank === wildRank) && isValidStraightFlush(cards, wildRank) && !isSet;
 
-  const sorted = isStraight
-    ? [...cards].sort((a, b) => a.rank - b.rank)
-    : [...nonWild, ...wilds];
-
   let wildCount = 0;
 
-  const cardElements = sorted.map((card, ci) => {
+  const cardElements = cards.map((card, ci) => {
     const isWild = card.rank === wildRank;
     if (isWild) wildCount++;
     const cardEl = (

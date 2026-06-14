@@ -575,15 +575,6 @@ export default function GameRoomPage() {
       if (g) g.push(card);
       else groups.set(card.meldGroupId, [card]);
     }
-    for (const [, group] of groups) {
-      const nonWild = group.filter((c) => !isWild(c, wildRank));
-      const wilds = group.filter((c) => isWild(c, wildRank));
-      if (nonWild.length >= 2 && new Set(nonWild.map((c) => c.rank)).size > 1) {
-        group.sort((a, b) => a.rank - b.rank);
-      } else {
-        group.length = 0; group.push(...nonWild, ...wilds);
-      }
-    }
     return groups;
   }
 

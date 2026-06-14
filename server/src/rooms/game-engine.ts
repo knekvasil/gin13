@@ -275,19 +275,20 @@ export function meldCards(
   const player = getCurrentPlayer(state);
 
   const cards: CardSchema[] = [];
-  const sorted = [...cardIndices].sort((a, b) => b - a);
-  for (const idx of sorted) {
+  for (const idx of cardIndices) {
     if (idx < 0 || idx >= player.hand.length) {
       throw new Error("Invalid card index");
     }
-    cards.unshift(player.hand.splice(idx, 1)[0]);
+    cards.push(player.hand[idx]!);
   }
 
   if (!canMeld(cards, state.wildRank)) {
-    for (const card of cards) {
-      player.hand.push(card);
-    }
     throw new Error("Invalid meld");
+  }
+
+  const removeOrder = [...cardIndices].sort((a, b) => b - a);
+  for (const idx of removeOrder) {
+    player.hand.splice(idx, 1);
   }
 
   const groupId = nextMeldGroupId();
@@ -318,6 +319,28 @@ function findCardsInMeld(
 function isStraightMeld(cards: CardSchema[], wildRank: number): boolean {
   if (cards.every((c) => isWild(c, wildRank))) return false;
   return isValidStraightFlush(cards, wildRank) && !isValidSet(cards, wildRank);
+}
+
+function isOrderedStraightFlush(cards: CardSchema[], wildRank: number): boolean {
+  if (cards.length < 4) return false;
+  let suit: number | null = null;
+  let firstNonWildIdx = -1;
+  let firstNonWildRank = 0;
+  for (let i = 0; i < cards.length; i++) {
+    if (isWild(cards[i]!, wildRank)) continue;
+    if (suit === null) suit = cards[i]!.suit;
+    else if (cards[i]!.suit !== suit) return false;
+    if (firstNonWildIdx === -1) {
+      firstNonWildIdx = i;
+      firstNonWildRank = cards[i]!.rank;
+    }
+    const expected = firstNonWildRank + (i - firstNonWildIdx);
+    if (cards[i]!.rank !== expected) return false;
+  }
+  if (suit === null) return false;
+  // Wilds before the first non-wild must not represent a rank below 1 (A)
+  if (firstNonWildRank - firstNonWildIdx < 1) return false;
+  return true;
 }
 
 export function addToMeld(
@@ -359,7 +382,23 @@ export function addToMeld(
       )
     : false;
 
-  if (canAdd && canSwap && preferSwap === undefined) {
+  const orderOkAdd =
+    !straight ||
+    (position === "start"
+      ? isOrderedStraightFlush([card, ...found.cards], state.wildRank)
+      : isOrderedStraightFlush([...found.cards, card], state.wildRank));
+
+  const orderOkSwap =
+    !straight ||
+    !wildInMeld ||
+    (() => {
+      const wildIdx = found.cards.indexOf(wildInMeld);
+      const ordered = [...found.cards];
+      ordered.splice(wildIdx, 1, card);
+      return isOrderedStraightFlush(ordered, state.wildRank);
+    })();
+
+  if (canAdd && orderOkAdd && canSwap && orderOkSwap && preferSwap === undefined) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     if (straight && position === "start") {
@@ -370,7 +409,7 @@ export function addToMeld(
     return;
   }
 
-  if (canSwap && (preferSwap === true || !canAdd)) {
+  if (canSwap && orderOkSwap && (preferSwap === true || !canAdd || !orderOkAdd)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     if (straight && wildInMeld) {
@@ -386,7 +425,7 @@ export function addToMeld(
     return;
   }
 
-  if (canAdd && (preferSwap === false || !canSwap)) {
+  if (preferSwap !== true && canAdd && orderOkAdd && (preferSwap === false || !canSwap || !orderOkSwap)) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     if (straight && position === "start") {

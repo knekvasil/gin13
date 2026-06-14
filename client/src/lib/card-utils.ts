@@ -67,7 +67,9 @@ export function isValidOrderedStraightFlush(cards: { rank: number; suit: number 
     if (cards[i].rank !== expected) return false;
   }
 
-  return suit !== null;
+  if (suit === null) return false;
+  if (firstNonWildRank - firstNonWildIdx < 1) return false;
+  return true;
 }
 
 export function canMeldCardsOrdered(cards: { rank: number; suit: number }[], wildRank: number): boolean {
