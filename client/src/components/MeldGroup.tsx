@@ -11,7 +11,7 @@ interface CardData {
 function WildCardSlot({ meldGroupId, wildIndex, children }: { meldGroupId: string; wildIndex: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `wild-${meldGroupId}-${wildIndex}`,
-    data: { type: "wild-card", meldGroupId },
+    data: { type: "wild-card", meldGroupId, wildIndex },
   });
   return (
     <div ref={setNodeRef} className="relative">

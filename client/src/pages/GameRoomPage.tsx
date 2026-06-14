@@ -530,9 +530,11 @@ export default function GameRoomPage() {
 
     if (dropId.startsWith("wild-") && sourceData.type === "hand") {
       const handIndex = sourceData.handIndex as number;
-      const meldGroupId = (over.data.current as Record<string, unknown> | undefined)?.meldGroupId as string;
+      const dropData = over.data.current as Record<string, unknown> | undefined;
+      const meldGroupId = dropData?.meldGroupId as string;
+      const meldCardIndex = dropData?.wildIndex as number;
       if (!room || !canMeld) return;
-      room.send("add_to_meld", { cardIndex: handIndex, meldGroupId, preferSwap: true });
+      room.send("swap_wild", { meldGroupId, meldCardIndex, handCardIndex: handIndex });
       return;
     }
   };
