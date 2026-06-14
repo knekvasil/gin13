@@ -448,7 +448,7 @@ export default function HowToPage() {
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
           A multi-round card game for 3–4 players. Draw, meld, and discard to
-          minimise your hand score across 13 rounds.
+          minimize your hand score across 13 rounds.
         </p>
       </div>
 
