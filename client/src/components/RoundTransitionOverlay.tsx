@@ -185,6 +185,7 @@ export default function RoundTransitionOverlay({
                       dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
+                      animationDuration={300}
                     />
                   ))}
                 </LineChart>
@@ -217,6 +218,7 @@ export default function RoundTransitionOverlay({
                       dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
+                      animationDuration={300}
                     />
                   ))}
                 </LineChart>

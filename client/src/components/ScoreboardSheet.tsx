@@ -182,6 +182,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                       dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
+                      animationDuration={300}
                     />
                   ))}
                 </LineChart>
@@ -216,6 +217,7 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
                       dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
+                      animationDuration={300}
                     />
                   ))}
                 </LineChart>

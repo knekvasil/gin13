@@ -159,6 +159,7 @@ export default function MatchOverScreen({ matchDetail }: { matchDetail: MatchDet
                       dot={{ r: 2 }}
                       connectNulls={false}
                       activeDot={false}
+                      animationDuration={300}
                     />
                   ))}
                 </LineChart>

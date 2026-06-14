@@ -203,7 +203,7 @@ export default function LobbyPage() {
 				{(() => {
 					const [open, setOpen] = useState(false);
 					const [rounds, setRounds] = useState(13);
-					const [mode, setMode] = useState<"players" | "bots3" | "bots4">("players");
+									const [mode, setMode] = useState<"players" | "bots2" | "bots3">("players");
 					return (
 						<Popover open={open} onOpenChange={setOpen}>
 							<PopoverTrigger asChild>
@@ -234,8 +234,8 @@ export default function LobbyPage() {
 										<div className="grid grid-cols-3 gap-1">
 											{[
 												{ value: "players" as const, label: "Players" },
+												{ value: "bots2" as const, label: "2 Bots" },
 												{ value: "bots3" as const, label: "3 Bots" },
-												{ value: "bots4" as const, label: "4 Bots" },
 											].map((opt) => (
 												<button
 													key={opt.value}
@@ -259,7 +259,7 @@ export default function LobbyPage() {
 											if (mode === "players") {
 												handleQuickPlay();
 											} else {
-												handlePractice(mode === "bots3" ? 3 : 4);
+												handlePractice(mode === "bots2" ? 2 : 3);
 											}
 										}}
 									>
