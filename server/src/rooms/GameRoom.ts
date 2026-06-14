@@ -54,16 +54,42 @@ export class GameRoom extends Room<GameState> {
 
     const botCount = options.bots ?? 0;
     for (let i = 0; i < botCount; i++) {
+      const botId = `bot_${i}`;
+      const botName = `Bot ${i + 1}`;
+
       const bot = new Player();
-      bot.sessionId = `bot_${i}`;
-      bot.userId = `bot_${i}`;
-      bot.name = `Bot ${i + 1}`;
+      bot.sessionId = botId;
+      bot.userId = botId;
+      bot.name = botName;
       bot.hand = new ArraySchema<CardSchema>();
       bot.board = new ArraySchema<CardSchema>();
       bot.score = 0;
       bot.disconnected = false;
       bot.isBot = true;
       this.state.players.push(bot);
+
+      // Ensure bot has a database profile
+      await prisma.user.upsert({
+        where: { id: botId },
+        update: { displayName: botName },
+        create: {
+          id: botId,
+          email: `${botId}@gin13.game`,
+          passwordHash: "",
+          displayName: botName,
+        },
+      });
+
+      await prisma.matchPlayer.upsert({
+        where: { matchId_userId: { matchId: this.roomId, userId: botId } },
+        update: {},
+        create: {
+          matchId: this.roomId,
+          userId: botId,
+          score: 0,
+        },
+      });
+
       this.setMetadata({ totalRounds, players: this.state.players.length });
     }
 
@@ -287,9 +313,6 @@ export class GameRoom extends Room<GameState> {
     for (const entry of rankedPlayers) {
       const p: any = (entry as any).player;
       const rank: number = (entry as any).rank;
-
-      // Skip bot players (no database records)
-      if (p.userId.startsWith("bot_")) continue;
 
       const matchPlayer = await prisma.matchPlayer.findUnique({
         where: { matchId_userId: { matchId: this.roomId, userId: p.userId } },
