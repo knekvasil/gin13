@@ -68,7 +68,10 @@ export function isValidOrderedStraightFlush(cards: { rank: number; suit: number 
   }
 
   if (suit === null) return false;
-  if (firstNonWildRank - firstNonWildIdx < 1) return false;
+  const startRank = firstNonWildRank - firstNonWildIdx;
+  const endRank = startRank + cards.length - 1;
+  if (startRank < 1) return false;
+  if (endRank > 13) return false;
   return true;
 }
 

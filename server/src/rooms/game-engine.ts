@@ -338,8 +338,10 @@ function isOrderedStraightFlush(cards: CardSchema[], wildRank: number): boolean 
     if (cards[i]!.rank !== expected) return false;
   }
   if (suit === null) return false;
-  // Wilds before the first non-wild must not represent a rank below 1 (A)
-  if (firstNonWildRank - firstNonWildIdx < 1) return false;
+  const startRank = firstNonWildRank - firstNonWildIdx;
+  const endRank = startRank + cards.length - 1;
+  if (startRank < 1) return false;
+  if (endRank > 13) return false;
   return true;
 }
 
@@ -371,8 +373,13 @@ export function addToMeld(
     throw new Error("Meld not found");
   }
 
-  const straight = isStraightMeld(found.cards, state.wildRank);
   const wildInMeld = found.cards.find((c) => isWild(c, state.wildRank));
+
+  if (preferSwap === true && wildInMeld && isWild(card, state.wildRank)) {
+    throw new Error("Cannot swap a wild with another wild");
+  }
+
+  const straight = isStraightMeld(found.cards, state.wildRank);
 
   const canAdd = canMeld([...found.cards, card], state.wildRank);
   const canSwap = wildInMeld
@@ -409,7 +416,7 @@ export function addToMeld(
     return;
   }
 
-  if (canSwap && orderOkSwap && (preferSwap === true || !canAdd || !orderOkAdd)) {
+  if (canSwap && orderOkSwap && preferSwap === true) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     if (straight && wildInMeld) {
@@ -425,7 +432,7 @@ export function addToMeld(
     return;
   }
 
-  if (preferSwap !== true && canAdd && orderOkAdd && (preferSwap === false || !canSwap || !orderOkSwap)) {
+  if (preferSwap !== true && canAdd && orderOkAdd) {
     player.hand.splice(cardIndex, 1)[0];
     card.meldGroupId = meldGroupId;
     if (straight && position === "start") {
@@ -434,6 +441,35 @@ export function addToMeld(
       found.owner.board.push(card);
     }
     return;
+  }
+
+  // Fallback: preferSwap=undefined, only one is valid ordered
+  if (preferSwap === undefined) {
+    if (canSwap && orderOkSwap) {
+      player.hand.splice(cardIndex, 1)[0];
+      card.meldGroupId = meldGroupId;
+      if (straight && wildInMeld) {
+        const wildIdx = found.owner.board.findIndex((c) => c === wildInMeld);
+        found.owner.board.splice(wildIdx, 1, card);
+      } else {
+        found.owner.board.push(card);
+        const boardIdx = found.owner.board.findIndex((c) => c === wildInMeld);
+        if (boardIdx !== -1) found.owner.board.splice(boardIdx, 1);
+      }
+      wildInMeld!.meldGroupId = "";
+      player.hand.push(wildInMeld!);
+      return;
+    }
+    if (canAdd && orderOkAdd) {
+      player.hand.splice(cardIndex, 1)[0];
+      card.meldGroupId = meldGroupId;
+      if (straight && position === "start") {
+        found.owner.board.unshift(card);
+      } else {
+        found.owner.board.push(card);
+      }
+      return;
+    }
   }
 
   throw new Error("Invalid manipulation");
@@ -473,6 +509,11 @@ export function swapWild(
   }
 
   const replacement = player.hand.splice(handCardIndex, 1)[0];
+
+  if (isWild(replacement, state.wildRank)) {
+    player.hand.push(replacement);
+    throw new Error("Cannot swap a wild with another wild");
+  }
 
   const newMeldCards = meldCards.filter((c) => c !== wildCard);
   newMeldCards.push(replacement);

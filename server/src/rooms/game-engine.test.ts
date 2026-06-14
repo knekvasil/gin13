@@ -734,6 +734,99 @@ describe("addToMeld", () => {
     expect(p1.board.some((c) => c.rank === 12)).toBe(true);
   });
 
+  it("rejects adding a wild beyond rank 13 (K)", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 11, suit: 0 },
+      { rank: 12, suit: 0 },
+      { rank: 13, suit: 0 },
+      { rank: 1, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3, 4, 5]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(1);
+
+    // Adding a wild to the right would extend past K(13) — reject
+    expect(() => addToMeld(state, "s1", 0, meldGroupId, false, "end")).toThrow("Invalid manipulation");
+    expect(p1.board.length).toBe(6);
+  });
+
+  it("rejects wild-to-wild swap via addToMeld", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 3, suit: 0 },
+      { rank: 4, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 6, suit: 0 },
+      { rank: 1, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+    expect(p1.board.length).toBe(4);
+
+    // Dropping a wild on the existing wild (preferSwap=true) — reject
+    expect(() => addToMeld(state, "s1", 0, meldGroupId, true)).toThrow("Cannot swap a wild with another wild");
+    // Adding a wild to the right (preferSwap=false, position end) should still work
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+    expect(p1.board.length).toBe(5);
+  });
+
+  it("rejects wild-to-wild swap via swapWild", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 1;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, [
+      { rank: 3, suit: 0 },
+      { rank: 4, suit: 0 },
+      { rank: 1, suit: 0 },
+      { rank: 6, suit: 0 },
+      { rank: 1, suit: 0 },
+    ]);
+    state.players.push(p1);
+
+    meldCards(state, "s1", [0, 1, 2, 3]);
+    const meldGroupId = p1.board[0]!.meldGroupId;
+
+    // Swap the wild (at index 2) with another wild from hand (index 0)
+    expect(() => swapWild(state, "s1", meldGroupId, 2, 0)).toThrow("Cannot swap a wild with another wild");
+  });
+
   it("rejects adding a card that makes the meld invalid", () => {
     const state = createGameState();
     state.status = "playing";
