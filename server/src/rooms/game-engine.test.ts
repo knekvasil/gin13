@@ -1182,11 +1182,11 @@ describe("addToMeld", () => {
     meldCards(state, "s2", [0, 1, 2, 3]);
     state.currentPlayerIndex = 0;
 
-    // P1 tries to add a wild to the right of (5-8) — wild at end would represent rank 9♠
-    // But 9♠ is already on P2's board
-    expect(() => addToMeld(state, "s1", 0, p1Group, false, "end")).toThrow("already on the board");
-    expect(p1.board.length).toBe(4);
-    expect(p1.hand.length).toBe(1);
+    // P1 adds a wild to the right of (5-8) — wild at end represents rank 9♠
+    // Wilds can represent any rank, so 9♠ on P2's board doesn't conflict
+    addToMeld(state, "s1", 0, p1Group, false, "end");
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(0);
   });
 
   it("rejects creating a set of a rank already on the board as a set", () => {

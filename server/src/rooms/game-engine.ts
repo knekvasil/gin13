@@ -383,6 +383,7 @@ function checkBoardConflict(
       if (card.suit !== suit) continue;
       if (isWild(card, wildRank)) continue;
       for (let pos = 0; pos < cards.length; pos++) {
+        if (isWild(cards[pos]!, wildRank)) continue;
         if (startRank + pos === card.rank) {
           throw new Error("Card of that rank and suit already on the board");
         }
