@@ -1970,4 +1970,450 @@ describe("invalid manipulation rejection", () => {
 
     expect(() => swapWild(state, "s1", meldGroupId, 2, 0)).toThrow("Invalid manipulation");
   });
+
+  it("swapWild on a straight does not eat the hand card when checkSetConflict would throw for an unrelated set", () => {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = 11;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    // Add cards for TWO melds: a set of aces AND a straight with wild
+    addCardsToHand(p1, [
+      // Set: A, A, A (indices 0,1,2)
+      { rank: 1, suit: 0 },
+      { rank: 1, suit: 1 },
+      { rank: 1, suit: 2 },
+    ]);
+    state.players.push(p1);
+
+    // Lay down the set first
+    meldCards(state, "s1", [0, 1, 2]);
+    const setGroupId = p1.board[0]!.meldGroupId;
+
+    // Now add hand cards for the straight + replacement
+    // Use suit 3 for all cards in the straight (different from set's suits 0,1,2)
+    addCardsToHand(p1, [
+      // Straight: A, W(11), 3, 4, 5 (indices 0,1,2,3,4) — all suit 3
+      { rank: 1, suit: 3 },
+      { rank: 11, suit: 3 },
+      { rank: 3, suit: 3 },
+      { rank: 4, suit: 3 },
+      { rank: 5, suit: 3 },
+      // Replacement card: 2 (index 5) — same suit 3
+      { rank: 2, suit: 3 },
+    ]);
+
+    // Lay down the straight
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+    const straightGroupId = p1.board[5]!.meldGroupId;
+
+    expect(p1.board.length).toBe(8);
+    // Board: [A(s), A(s), A(s), A(st), W(st), 3(st), 4(st), 5(st)]
+    expect(p1.hand.length).toBe(1);
+    expect(p1.hand[0]!.rank).toBe(2);
+
+    // Find the wild in the straight
+    const wildBoardIdx = p1.board.findIndex((c) => c.meldGroupId === straightGroupId && c.rank === 11);
+    const meldCardsArr = p1.board.filter((c) => c.meldGroupId === straightGroupId);
+    const wildMeldIdx = meldCardsArr.findIndex((c) => c.rank === 11);
+
+    // swapWild calls checkSetConflict which finds rank 1 (ace) in the straight's new meld cards
+    // and should NOT conflict with the set of aces since this is a straight operation
+    swapWild(state, "s1", straightGroupId, wildMeldIdx, 0);
+
+    // The 2 should now be on the board where the wild was
+    expect(p1.board[wildBoardIdx]!.rank).toBe(2);
+    // The wild should be in hand
+    expect(p1.hand.length).toBe(1);
+    expect(p1.hand[0]!.rank).toBe(11);
+    // The set of aces should be untouched
+    expect(p1.board.filter(c => c.meldGroupId === setGroupId).length).toBe(3);
+  });
+});
+
+describe("bug reproduction: append to right of straight", () => {
+  function setupState(wildRank: number, handCards: { rank: number; suit: number }[], meldCardsInput: { rank: number; suit: number }[]): { state: GameState; meldGroupId: string } {
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = wildRank;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    addCardsToHand(p1, handCards);
+    state.players.push(p1);
+
+    meldCards(state, "s1", meldCardsInput.map((_, i) => i));
+    const meldGroupId = p1.board[0]!.meldGroupId;
+    return { state, meldGroupId };
+  }
+
+  // Bug 1: (4,5,W,7,W,W) → append 10 to right should give (4,5,W,7,W,W,10), not replace wild
+  it("Bug 1: appends 10 to right of (4,5,W,7,W,W)", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 4, suit: 0 }, // index 0
+        { rank: 5, suit: 0 }, // index 1
+        { rank: wildRank, suit: 1 }, // index 2 — wild
+        { rank: 7, suit: 0 }, // index 3
+        { rank: wildRank, suit: 2 }, // index 4 — wild
+        { rank: wildRank, suit: 3 }, // index 5 — wild
+        { rank: 10, suit: 0 }, // index 6 — card to add
+      ],
+      [{ rank: 4, suit: 0 }, { rank: 5, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 7, suit: 0 }, { rank: wildRank, suit: 2 }, { rank: wildRank, suit: 3 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(7);
+    expect(p1.board[6]!.rank).toBe(10);
+    expect(p1.board[6]!.suit).toBe(0);
+    // All original wilds should still be on the board
+    expect(p1.board.filter(c => c.rank === wildRank).length).toBe(3);
+  });
+
+  // Bug 2: (2,3,W,W,6,7) → append 8 to right should give (2,3,W,W,6,7,8), not replace 7
+  it("Bug 2: appends 8 to right of (2,3,W,W,6,7)", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 2, suit: 0 },
+        { rank: 3, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: wildRank, suit: 2 },
+        { rank: 6, suit: 0 },
+        { rank: 7, suit: 0 },
+        { rank: 8, suit: 0 }, // card to add
+      ],
+      [{ rank: 2, suit: 0 }, { rank: 3, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: wildRank, suit: 2 }, { rank: 6, suit: 0 }, { rank: 7, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(7);
+    expect(p1.board[6]!.rank).toBe(8);
+    // 7 should still be on the board at its original position
+    expect(p1.board[5]!.rank).toBe(7);
+  });
+
+  // Bug 3: (3,4,5,6,W) → append 8 to right should give (3,4,5,6,W,8), not replace W with 8
+  it("Bug 3: appends 8 to right of (3,4,5,6,W)", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 3, suit: 0 },
+        { rank: 4, suit: 0 },
+        { rank: 5, suit: 0 },
+        { rank: 6, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: 8, suit: 0 }, // card to add
+      ],
+      [{ rank: 3, suit: 0 }, { rank: 4, suit: 0 }, { rank: 5, suit: 0 }, { rank: 6, suit: 0 }, { rank: wildRank, suit: 1 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[5]!.rank).toBe(8);
+    // Wild should still be on the board
+    expect(p1.board.filter(c => c.rank === wildRank).length).toBe(1);
+  });
+
+  // Bug 4: (3,W,W,6,W) → append 8 to right should work
+  it("Bug 4: appends 8 to right of (3,W,W,6,W) — should work", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 3, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: wildRank, suit: 2 },
+        { rank: 6, suit: 0 },
+        { rank: wildRank, suit: 3 },
+        { rank: 8, suit: 0 }, // card to add
+      ],
+      [{ rank: 3, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: wildRank, suit: 2 }, { rank: 6, suit: 0 }, { rank: wildRank, suit: 3 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[5]!.rank).toBe(8);
+    expect(p1.board.filter(c => c.rank === wildRank).length).toBe(3);
+  });
+
+  // Bug 5: (9,W,W,Q,K) → append W to left should work
+  it("Bug 5: appends wild to left of (9,W,W,Q,K) — should work", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 9, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: wildRank, suit: 2 },
+        { rank: 12, suit: 0 }, // Q
+        { rank: 13, suit: 0 }, // K
+        { rank: wildRank, suit: 3 }, // wild to add
+      ],
+      [{ rank: 9, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: wildRank, suit: 2 }, { rank: 12, suit: 0 }, { rank: 13, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "start");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[0]!.rank).toBe(wildRank);
+  });
+
+  // Bug 6: (W,9,W,W,Q,K) → append 7 to left should work
+  it("Bug 6: appends 7 to left of (W,9,W,W,Q,K) — should work", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: wildRank, suit: 1 },
+        { rank: 9, suit: 0 },
+        { rank: wildRank, suit: 2 },
+        { rank: wildRank, suit: 3 },
+        { rank: 12, suit: 0 }, // Q
+        { rank: 13, suit: 0 }, // K
+        { rank: 7, suit: 0 }, // card to add
+      ],
+      [{ rank: wildRank, suit: 1 }, { rank: 9, suit: 0 }, { rank: wildRank, suit: 2 }, { rank: wildRank, suit: 3 }, { rank: 12, suit: 0 }, { rank: 13, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "start");
+
+    expect(p1.board.length).toBe(7);
+    expect(p1.board[0]!.rank).toBe(7);
+  });
+
+  // Bug 7: (7,8,W,10) → append wild to right should work
+  it("Bug 7: appends wild to right of (7,8,W,10) — should work", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 7, suit: 0 },
+        { rank: 8, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: 10, suit: 0 },
+        { rank: wildRank, suit: 2 }, // wild to add
+      ],
+      [{ rank: 7, suit: 0 }, { rank: 8, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 10, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(4);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[4]!.rank).toBe(wildRank);
+  });
+
+  // Bug 8: (3,W,5,6) → append 2 to right with wildRank=2 (2 is wild, fills gap)
+  it("Bug 8: appends 2 (wild) to right of (3,W,5,6) — works when 2 is a wild card", () => {
+    const wildRank = 2; // 2 is wild, so hand card 2 is a wild
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 3, suit: 0 },
+        { rank: wildRank, suit: 1 }, // wild
+        { rank: 5, suit: 0 },
+        { rank: 6, suit: 0 },
+        { rank: 2, suit: 2 }, // wild card to add — rank 2 = wildRank
+      ],
+      [{ rank: 3, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 5, suit: 0 }, { rank: 6, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(4);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[4]!.rank).toBe(wildRank);
+  });
+
+  // Bug 9: (A,W,3,4,5) → swap wild with a 2, should replace wild
+  it("Bug 9: swaps wild with 2 in (A,W,3,4,5) — 2 should replace wild", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 1, suit: 0 }, // A
+        { rank: wildRank, suit: 1 },
+        { rank: 3, suit: 0 },
+        { rank: 4, suit: 0 },
+        { rank: 5, suit: 0 },
+        { rank: 2, suit: 0 }, // card to swap with wild
+      ],
+      [{ rank: 1, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 3, suit: 0 }, { rank: 4, suit: 0 }, { rank: 5, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    // Board index of the wild should be 1 (position in board array)
+    const boardIdx = p1.board.findIndex(c => c.rank === wildRank);
+    expect(boardIdx).toBe(1);
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    swapWild(state, "s1", meldGroupId, boardIdx, 0);
+
+    expect(p1.board.length).toBe(5);
+    expect(p1.board[1]!.rank).toBe(2); // wild replaced with 2
+    expect(p1.board[1]!.suit).toBe(0);
+    // Wild should now be in hand
+    expect(p1.hand.length).toBe(1);
+    expect(p1.hand[0]!.rank).toBe(wildRank);
+  });
+
+  // New Bug A: (W,7,8,9,10,W) → append wild to right → wild disappears
+  it("Bug A: appends wild to right of (W,7,8,9,10,W) — wild should appear at end", () => {
+    const wildRank = 5;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: wildRank, suit: 1 },
+        { rank: 7, suit: 0 },
+        { rank: 8, suit: 0 },
+        { rank: 9, suit: 0 },
+        { rank: 10, suit: 0 },
+        { rank: wildRank, suit: 2 },
+        { rank: wildRank, suit: 3 }, // wild to add at end
+      ],
+      [{ rank: wildRank, suit: 1 }, { rank: 7, suit: 0 }, { rank: 8, suit: 0 }, { rank: 9, suit: 0 }, { rank: 10, suit: 0 }, { rank: wildRank, suit: 2 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(6);
+    expect(p1.hand.length).toBe(1);
+
+    // The hand card is wild (rank === wildRank)
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(7);
+    expect(p1.board[6]!.rank).toBe(wildRank);
+    expect(p1.board.filter(c => c.rank === wildRank).length).toBe(3);
+  });
+
+  // New Bug B: (A,2,3,4,5,W,7,W,W) → append 10 to right → 7 should not be replaced
+  it("Bug B: appends 10 to right of (A,2,3,4,5,W,7,W,W) — 7 stays, 10 at end", () => {
+    const wildRank = 6;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 1, suit: 0 },
+        { rank: 2, suit: 0 },
+        { rank: 3, suit: 0 },
+        { rank: 4, suit: 0 },
+        { rank: 5, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: 7, suit: 0 },
+        { rank: wildRank, suit: 2 },
+        { rank: wildRank, suit: 3 },
+        { rank: 10, suit: 0 }, // card to add
+      ],
+      [{ rank: 1, suit: 0 }, { rank: 2, suit: 0 }, { rank: 3, suit: 0 }, { rank: 4, suit: 0 }, { rank: 5, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 7, suit: 0 }, { rank: wildRank, suit: 2 }, { rank: wildRank, suit: 3 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(9);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(10);
+    // 10 at end
+    expect(p1.board[9]!.rank).toBe(10);
+    // 7 still at original position (index 6)
+    expect(p1.board[6]!.rank).toBe(7);
+  });
+
+  // Scenario C: existing straight (7,8,9,W,W) blocks laying down set of 7s — bug in checkSetConflict
+  it("Scenario C: can lay down set of 7s when a straight contains 7", () => {
+    const wildRank = 11; // J is wild
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = wildRank;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    state.players.push(p1);
+
+    // Meld 1: straight (7♠,8♠,9♠,W♠,W♠)
+    addCardsToHand(p1, [
+      { rank: 7, suit: 0 },
+      { rank: 8, suit: 0 },
+      { rank: 9, suit: 0 },
+      { rank: wildRank, suit: 0 },
+      { rank: wildRank, suit: 1 },
+    ]);
+    meldCards(state, "s1", [0, 1, 2, 3, 4]);
+
+    // Meld 2: set of 6s (6♦,6♥,6♠,W♠)
+    addCardsToHand(p1, [
+      { rank: 6, suit: 2 },
+      { rank: 6, suit: 3 },
+      { rank: 6, suit: 1 },
+      { rank: wildRank, suit: 2 },
+    ]);
+    meldCards(state, "s1", [0, 1, 2, 3]);
+
+    // Meld 3: set of 2s (2♣,2♦,2♥)
+    addCardsToHand(p1, [
+      { rank: 2, suit: 0 },
+      { rank: 2, suit: 1 },
+      { rank: 2, suit: 2 },
+    ]);
+    meldCards(state, "s1", [0, 1, 2]);
+
+    expect(p1.board.length).toBe(12);
+    expect(p1.hand.length).toBe(0);
+
+    // Now try to lay down (7♣, 7♦, W♦) — a set of 7s
+    addCardsToHand(p1, [
+      { rank: 7, suit: 3 },
+      { rank: 7, suit: 2 },
+      { rank: wildRank, suit: 3 },
+    ]);
+
+    // This should NOT throw even though the straight has a 7 in it
+    expect(() => meldCards(state, "s1", [0, 1, 2])).not.toThrow();
+    expect(p1.board.length).toBe(15);
+  });
 });

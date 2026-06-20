@@ -401,18 +401,17 @@ function checkSetConflict(
   const proposedRank = cards.find((c) => !isWild(c, wildRank))?.rank ?? wildRank;
   const occupied = new Set<number>();
   for (const player of state.players) {
-    const perMeld = new Map<string, { hasNonWild: boolean; nonWildRank: number | null }>();
+    const perMeld = new Map<string, CardSchema[]>();
     for (const card of player.board) {
       if (card.meldGroupId === "" || card.meldGroupId === meldGroupId) continue;
-      const e = perMeld.get(card.meldGroupId) ?? { hasNonWild: false, nonWildRank: null };
-      if (!isWild(card, wildRank)) {
-        e.hasNonWild = true;
-        if (e.nonWildRank === null) e.nonWildRank = card.rank;
-      }
-      perMeld.set(card.meldGroupId, e);
+      const arr = perMeld.get(card.meldGroupId) ?? [];
+      arr.push(card);
+      perMeld.set(card.meldGroupId, arr);
     }
-    for (const [, e] of perMeld) {
-      occupied.add(e.hasNonWild ? e.nonWildRank! : wildRank);
+    for (const [, arr] of perMeld) {
+      if (!isValidSet(arr, wildRank)) continue;
+      const setRank = arr.find((c) => !isWild(c, wildRank))?.rank ?? wildRank;
+      occupied.add(setRank);
     }
   }
   if (occupied.has(proposedRank)) {
@@ -642,8 +641,9 @@ export function swapWild(
 
   // For straights, the replacement must preserve the ordered sequence
   const isStraightM = isValidStraightFlush(meldCards, state.wildRank) && !isValidSet(meldCards, state.wildRank);
+  let ordered: CardSchema[] | undefined;
   if (isStraightM) {
-    const ordered = [...meldCards];
+    ordered = [...meldCards];
     ordered[meldCardIndex] = replacement;
     if (!isOrderedStraightFlush(ordered, state.wildRank)) {
       player.hand.push(replacement);
@@ -651,10 +651,22 @@ export function swapWild(
     }
   }
 
-  checkSetConflict(state, newMeldCards, meldGroupId, state.wildRank);
-
   const boardIdx = owner.board.findIndex((c) => c === wildCard);
-  if (boardIdx === -1) throw new Error("Wild card not found on board");
+  if (boardIdx === -1) {
+    player.hand.push(replacement);
+    throw new Error("Wild card not found on board");
+  }
+
+  try {
+    if (isStraightM) {
+      checkBoardConflict(state, ordered!, meldGroupId, state.wildRank);
+    } else {
+      checkSetConflict(state, newMeldCards, meldGroupId, state.wildRank);
+    }
+  } catch (e) {
+    player.hand.push(replacement);
+    throw e;
+  }
 
   const straight = isStraightM;
   replacement.meldGroupId = meldGroupId;
