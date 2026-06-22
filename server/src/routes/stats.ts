@@ -1,12 +1,17 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db";
-
-interface MatchPlayerWithScore {
-  matchId: string;
-  score: number;
-  finalRank: number | null;
-  match: { endedAt: Date | null };
-}
+import {
+  computeWinRate,
+  computeAvgRank,
+  computeEloHistory,
+  computePeakElo,
+  computeTotalRoundsPlayed,
+  computeScoreHistory,
+  computeRankDistribution,
+  computeWinStreaks,
+  computeCurrentForm,
+  computePercentiles,
+} from "../services/stats-service";
 
 const router = Router();
 
@@ -88,32 +93,6 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
       orderBy: { match: { endedAt: "asc" } },
     });
 
-    let runningElo = 1000;
-    let peakElo = 1000;
-    let totalRoundsPlayed = 0;
-    const eloHistory: { date: string; elo: number }[] = [];
-    for (const mp of matchPlayers) {
-      if (!mp.match.endedAt) continue;
-      runningElo += mp.eloDelta;
-      if (runningElo > peakElo) peakElo = runningElo;
-      totalRoundsPlayed += mp.match.totalRounds;
-      eloHistory.push({
-        date: mp.match.endedAt.toISOString().slice(0, 10),
-        elo: runningElo,
-      });
-    }
-
-    const resultsAsc = [...results].reverse();
-    const rankHistory: { date: string; rank: number }[] = [];
-    for (const r of resultsAsc) {
-      if (r.rank != null) {
-        rankHistory.push({
-          date: r.endedAt.toISOString().slice(0, 10),
-          rank: r.rank,
-        });
-      }
-    }
-
     if (!stats) {
       res.json({
         elo: 1000,
@@ -126,84 +105,47 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
         biggestRoundLoss: null,
         mostRoundsWonInAGame: null,
         maxOpponentPointsInWonRound: null,
-      biggestGameWin: null,
-      biggestGameLoss: null,
-      biggestWinDiff: null,
-      totalRoundsPlayed: 0,
-      peakElo: 1000,
-      percentiles: {},
-      scoreHistory: [],
-      eloHistory: [],
-      rankHistory: [],
-      rankDistribution: [],
-      longestGameWinStreak: 0,
-      longestRoundWinStreak: 0,
-      currentGameWinStreak: 0,
-      currentForm: [],
+        biggestGameWin: null,
+        biggestGameLoss: null,
+        biggestWinDiff: null,
+        totalRoundsPlayed: 0,
+        peakElo: 1000,
+        percentiles: {},
+        scoreHistory: [],
+        eloHistory: [],
+        rankHistory: [],
+        rankDistribution: [],
+        longestGameWinStreak: 0,
+        longestRoundWinStreak: 0,
+        currentGameWinStreak: 0,
+        currentForm: [],
       });
       return;
     }
 
-    const winRate = stats.totalMatches > 0 ? Math.round((stats.wins / stats.totalMatches) * 100) : 0;
-    const avgRank = results.length > 0
-      ? Math.round((results.reduce((s: number, r: any) => s + (r.rank ?? 5), 0) / results.length) * 10) / 10
-      : 0;
+    const winRate = computeWinRate(stats.wins, stats.totalMatches);
+    const avgRank = computeAvgRank(results as any);
+    const eloHistory = computeEloHistory(matchPlayers as any);
+    const peakElo = computePeakElo(eloHistory);
+    const totalRoundsPlayed = computeTotalRoundsPlayed(matchPlayers as any);
+    const scoreHistory = computeScoreHistory(results as any);
+    const rankDistribution = computeRankDistribution(results as any);
+    const { longestGameWinStreak, currentGameWinStreak } = computeWinStreaks(results as any);
+    const currentForm = computeCurrentForm(results as any);
 
-    const scoreHistory: { matchId: string; date: string; score: number }[] = [];
-    for (const r of results) {
-      scoreHistory.push({
-        matchId: "",
-        date: r.endedAt.toISOString().slice(0, 10),
-        score: r.score,
-      });
-    }
-
-    const dist = new Map<number, number>();
-    for (const r of results) {
-      if (r.rank != null) dist.set(r.rank, (dist.get(r.rank) ?? 0) + 1);
-    }
-    const rankDistribution = Array.from(dist.entries())
-      .map(([rank, count]: [number, number]) => ({ rank, count }))
-      .sort((a: any, b: any) => a.rank - b.rank);
-
-    let longestGameWinStreak = 0;
-    let currentGameWinStreak = 0;
-    let currentRun = 0;
-    for (const r of results) {
-      if (r.rank === 1) {
-        currentRun++;
-        longestGameWinStreak = Math.max(longestGameWinStreak, currentRun);
-      } else {
-        currentRun = 0;
+    const rankHistory: { date: string; rank: number }[] = [];
+    const resultsAsc = [...results].reverse();
+    for (const r of resultsAsc) {
+      if (r.rank != null) {
+        rankHistory.push({
+          date: r.endedAt.toISOString().slice(0, 10),
+          rank: r.rank,
+        });
       }
     }
-    currentGameWinStreak = currentRun;
-
-    const form = results.slice(0, 10).map((r: any) => ({
-      result: r.rank === 1 ? "W" : "L" as const,
-      score: r.score,
-    }));
 
     const allStats = (await prisma.playerStats.findMany()) as any[];
-    function pct(values: number[], playerVal: number, higherIsBetter: boolean): number {
-      if (values.length === 0) return 50;
-      const sorted = [...values].sort((a, b) => higherIsBetter ? a - b : b - a);
-      const idx = sorted.findIndex((v) => higherIsBetter ? v >= playerVal : v <= playerVal);
-      return Math.round(((idx === -1 ? values.length - 1 : idx) / (values.length - 1)) * 100);
-    }
-
-    const winRates = allStats.map((s: any) => s.totalMatches > 0 ? Math.round((s.wins / s.totalMatches) * 100) : 0);
-
-    const percentiles: Record<string, number> = {
-      elo: pct(allStats.map((s: any) => s.elo), stats.elo, true),
-      totalMatches: pct(allStats.map((s: any) => s.totalMatches), stats.totalMatches, true),
-      winRate: pct(winRates, winRate, true),
-      biggestWinDiff: pct(allStats.map((s: any) => s.biggestWinDiff ?? 0), stats.biggestWinDiff ?? 0, true),
-      biggestGameLoss: pct(allStats.map((s: any) => s.biggestGameLoss ?? 0), stats.biggestGameLoss ?? 0, false),
-      biggestRoundLoss: pct(allStats.map((s: any) => s.biggestRoundLoss ?? 0), stats.biggestRoundLoss ?? 0, false),
-      mostRoundsWonInAGame: pct(allStats.map((s: any) => s.mostRoundsWonInAGame ?? 0), stats.mostRoundsWonInAGame ?? 0, true),
-      longestGameWinStreak: pct(allStats.map((s: any) => s.longestGameWinStreak), stats.longestGameWinStreak, true),
-    };
+    const percentiles = computePercentiles(allStats, { ...stats, longestGameWinStreak }, winRate);
 
     res.json({
       elo: stats.elo,
@@ -228,7 +170,7 @@ router.get("/stats/:userId", async (req: Request, res: Response) => {
       rankDistribution,
       longestGameWinStreak,
       currentGameWinStreak,
-      currentForm: form,
+      currentForm,
     });
   } catch (err) {
     console.error("stats error", err);
