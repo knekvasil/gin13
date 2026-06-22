@@ -2416,4 +2416,33 @@ describe("bug reproduction: append to right of straight", () => {
     expect(() => meldCards(state, "s1", [0, 1, 2])).not.toThrow();
     expect(p1.board.length).toBe(15);
   });
+
+  it("accepts (W,K,W,Q) — cards can form straight 10-13 even if hand order is weird", () => {
+    const wildRank = 11;
+    const state = createGameState();
+    state.status = "playing";
+    state.phase = "main_phase";
+    state.currentPlayerIndex = 0;
+    state.wildRank = wildRank;
+
+    const p1 = new Player();
+    p1.sessionId = "s1";
+    p1.name = "Alice";
+    p1.hand = new ArraySchema<CardSchema>();
+    p1.board = new ArraySchema<CardSchema>();
+    state.players.push(p1);
+
+    p1.hand.push(createCard(wildRank, 0));
+    p1.hand.push(createCard(13, 0));
+    p1.hand.push(createCard(wildRank, 1));
+    p1.hand.push(createCard(12, 0));
+
+    // Cards can be arranged to straight 10-13 (W,W,Q,K)
+    expect(() => meldCards(state, "s1", [0, 1, 2, 3])).not.toThrow();
+    // Board stores in original hand order
+    expect(p1.board[0]!.rank).toBe(wildRank);
+    expect(p1.board[1]!.rank).toBe(13); // K
+    expect(p1.board[2]!.rank).toBe(wildRank);
+    expect(p1.board[3]!.rank).toBe(12); // Q
+  });
 });

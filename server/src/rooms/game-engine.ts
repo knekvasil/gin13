@@ -294,6 +294,12 @@ export function meldCards(
     checkSetConflict(state, cards, "", state.wildRank);
   }
 
+  // For straight flushes, verify cards can form a valid ordered sequence
+  const straightFlush = isValidStraightFlush(cards, state.wildRank) && !isValidSet(cards, state.wildRank);
+  if (straightFlush && !isOrderedStraightFlush(arrangeStraight(cards, state.wildRank), state.wildRank)) {
+    throw new Error("Invalid meld");
+  }
+
   const removeOrder = [...cardIndices].sort((a, b) => b - a);
   for (const idx of removeOrder) {
     player.hand.splice(idx, 1);
@@ -752,6 +758,18 @@ function arrangeStraight(cards: CardSchema[], wildRank: number): CardSchema[] {
   const wilds = cards.filter((c) => isWild(c, wildRank));
   const result: CardSchema[] = [];
   let wi = 0;
+
+  let gapWilds = 0;
+  for (let i = 1; i < nonWild.length; i++) {
+    gapWilds += nonWild[i]!.rank - nonWild[i - 1]!.rank - 1;
+  }
+  const extraWilds = wilds.length - gapWilds;
+  const headWilds = Math.max(0, Math.min(extraWilds, nonWild[0]!.rank - 1));
+
+  for (let i = 0; i < headWilds; i++) {
+    result.push(wilds[wi++]!);
+  }
+
   let nextRank = nonWild[0]!.rank;
   for (const nw of nonWild) {
     while (nextRank < nw.rank && wi < wilds.length) {
