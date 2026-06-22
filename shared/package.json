@@ -1,0 +1,10 @@
+{
+  "name": "@gin13/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/meld-validator.ts",
+  "exports": {
+    ".": "./src/meld-validator.ts"
+  }
+}

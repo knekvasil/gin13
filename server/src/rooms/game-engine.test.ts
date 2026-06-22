@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { ArraySchema } from "@colyseus/schema";
 import { GameState, Player, createGameState, CardSchema, createCard } from "./GameState";
-import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, isWild, canMeld, addToMeld, swapWild, calculateRoundScores, startNextRound, endMatch, endRound, autoPlayTurn } from "./game-engine";
+import { startGame, drawFromDeck, drawFromDiscard, meldCards, passMeld, discardCard, addToMeld, swapWild, calculateRoundScores, startNextRound, endMatch, endRound, autoPlayTurn } from "./game-engine";
+import { isWild, canMeld } from "./meld-validator";
 
 function twoPlayerState(): GameState {
   const state = createGameState();

@@ -1,7 +1,7 @@
 {
   "name": "gin13",
   "private": true,
-  "workspaces": ["server", "client"],
+  "workspaces": ["server", "client", "shared"],
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "test": "npm run test -w server",
