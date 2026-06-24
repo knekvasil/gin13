@@ -176,6 +176,9 @@ export default function LobbyPage() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <PlayNowPopover onQuickPlay={handleQuickPlay} onPractice={handlePractice} />
+        <Button variant="outline" size="sm" onClick={() => navigate("/bot-league")}>
+          Bot League
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

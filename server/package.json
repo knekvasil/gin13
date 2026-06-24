@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "sim": "tsx src/sim-bots.ts",
-    "bot-cron": "tsx src/bot-cron.ts"
+    "bot-cron": "tsx src/bot-cron.ts",
+    "bot-league": "tsx src/bot-league.ts"
   },
   "dependencies": {
     "@colyseus/schema": "^2.0.0",

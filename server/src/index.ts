@@ -7,6 +7,7 @@ import { Server } from "colyseus";
 import authRouter from "./auth";
 import statsRouter from "./routes/stats";
 import socialRouter from "./routes/social";
+import leagueRouter from "./routes/league";
 import { GameRoom } from "./rooms/GameRoom";
 import { seedBots } from "./seed-bots";
 import { prisma } from "./db";
@@ -39,6 +40,7 @@ app.use(morgan("short"));
 app.use("/auth", authRouter);
 app.use("/", statsRouter);
 app.use("/", socialRouter);
+app.use("/", leagueRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

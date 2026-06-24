@@ -13,6 +13,8 @@ import GameRoomPage from "./pages/GameRoomPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import MatchHistoryPage from "./pages/MatchHistoryPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
+import LeaguePage from "./pages/LeaguePage";
+import BotDetailPage from "./pages/BotDetailPage";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +51,8 @@ export default function App() {
               <Route path="/matches" element={<ProtectedRoute><NonGameLayout><MatchHistoryPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/match/:matchId" element={<ProtectedRoute><NonGameLayout><MatchDetailPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/how-to" element={<NonGameLayout><HowToPage /></NonGameLayout>} />
+              <Route path="/bot-league" element={<ProtectedRoute><NonGameLayout><LeaguePage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/bot-league/:botId" element={<ProtectedRoute><NonGameLayout><BotDetailPage /></NonGameLayout></ProtectedRoute>} />
             </Routes>
           </AuthProvider>
           </TooltipProvider>

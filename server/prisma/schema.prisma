@@ -111,3 +111,45 @@ model Friendship {
   @@index([userId, status])
   @@index([friendId, status])
 }
+
+model BotSeason {
+  id         String   @id @default(uuid())
+  name       String
+  roundCount Int      @default(7)
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  rounds    BotRound[]
+  standings BotStanding[]
+}
+
+model BotRound {
+  id          String @id @default(uuid())
+  seasonId    String
+  roundNumber Int
+  status      String @default("PENDING")
+
+  season  BotSeason  @relation(fields: [seasonId], references: [id])
+  matches BotMatch[]
+}
+
+model BotMatch {
+  id      String @id @default(uuid())
+  roundId String
+  matchId String
+
+  round BotRound @relation(fields: [roundId], references: [id])
+}
+
+model BotStanding {
+  id            String @id @default(uuid())
+  seasonId      String
+  botId         String
+  matchPoints   Int    @default(0)
+  matchesPlayed Int    @default(0)
+  tiebreakElo   Int    @default(1000)
+
+  season BotSeason @relation(fields: [seasonId], references: [id])
+
+  @@unique([seasonId, botId])
+}
