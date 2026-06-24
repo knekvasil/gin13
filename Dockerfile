@@ -17,6 +17,7 @@ COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules node_modules/
 COPY --from=builder /app/server/dist server/dist/
 COPY --from=builder /app/client/dist client/dist/
+COPY --from=builder /app/shared/package.json shared/
 COPY --from=builder /app/shared/src shared/src/
 ENV NODE_ENV=production
 EXPOSE 2567

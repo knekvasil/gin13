@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:2567";
+const API_BASE = window.location.origin;
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem("jwt");

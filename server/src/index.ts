@@ -2,6 +2,7 @@ import path from "path";
 import express from "express";
 import http from "http";
 import cors from "cors";
+import morgan from "morgan";
 import { Server } from "colyseus";
 import authRouter from "./auth";
 import statsRouter from "./routes/stats";
@@ -34,18 +35,19 @@ process.on("SIGTERM", async () => {
 const CORS_ORIGIN = process.env["CORS_ORIGIN"] || "http://localhost:5173";
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
+app.use(morgan("short"));
 app.use("/auth", authRouter);
 app.use("/", statsRouter);
 app.use("/", socialRouter);
 
-const clientDist = path.join(__dirname, "../../client/dist");
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
+const clientDist = path.join(__dirname, "../../../client/dist");
 app.use(express.static(clientDist));
 app.get("*", (_req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
-});
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
 });
 
 gameServer.define("game_room", GameRoom);
