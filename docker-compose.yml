@@ -1,0 +1,8 @@
+services:
+  app:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/gin13:latest
+    container_name: gin13
+    ports:
+      - "2567:2567"
+    env_file: .env
+    restart: unless-stopped

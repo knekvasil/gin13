@@ -112,7 +112,9 @@ export class GameRoom extends Room<GameState> {
           drawFromDeck(this.state, client.sessionId);
         }
         this.restartTurnTimer();
-      } catch {}
+      } catch (e) {
+        console.error("[room] draw:", e);
+      }
     });
 
     this.onMessage("meld", (client, msg: { cardIndices: number[] }) => {
@@ -127,14 +129,18 @@ export class GameRoom extends Room<GameState> {
       try {
         passMeld(this.state, client.sessionId);
         this.restartTurnTimer();
-      } catch {}
+      } catch (e) {
+        console.error("[room] pass_meld:", e);
+      }
     });
 
     this.onMessage("discard", (client, msg: { cardIndex: number }) => {
       try {
         discardCard(this.state, client.sessionId, msg.cardIndex);
         this.afterTurnAction();
-      } catch {}
+      } catch (e) {
+        console.error("[room] discard:", e);
+      }
     });
 
     this.onMessage("add_to_meld", (client, msg: { cardIndex: number; meldGroupId: string; preferSwap?: boolean; position?: "start" | "end" }) => {
