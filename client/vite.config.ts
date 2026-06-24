@@ -14,6 +14,17 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/ws": "http://localhost:2567",
+      "/auth": "http://localhost:2567",
+      "/leaderboard": "http://localhost:2567",
+      "/matches": "http://localhost:2567",
+      "/stats": "http://localhost:2567",
+      "/match": "http://localhost:2567",
+      "/users": "http://localhost:2567",
+      "/heartbeat": "http://localhost:2567",
+      "/friends": "http://localhost:2567",
+      "/recent-opponents": "http://localhost:2567",
+      "/headtohead": "http://localhost:2567",
+      "/health": "http://localhost:2567",
     },
   },
 });
