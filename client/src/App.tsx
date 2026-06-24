@@ -7,6 +7,7 @@ import AppLayout from "./components/AppLayout";
 import HowToPage from "./pages/HowToPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import LandingPage from "./pages/LandingPage";
 import LobbyPage from "./pages/LobbyPage";
 import GameRoomPage from "./pages/GameRoomPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
@@ -23,7 +24,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
-  if (token) return <Navigate to="/" replace />;
+  if (token) return <Navigate to="/lobby" replace />;
   return <>{children}</>;
 }
 
@@ -41,7 +42,8 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<PublicRoute><NonGameLayout><LoginPage /></NonGameLayout></PublicRoute>} />
               <Route path="/register" element={<PublicRoute><NonGameLayout><RegisterPage /></NonGameLayout></PublicRoute>} />
-              <Route path="/" element={<ProtectedRoute><NonGameLayout><LobbyPage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/lobby" element={<ProtectedRoute><NonGameLayout><LobbyPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/game/:roomId" element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><NonGameLayout><LeaderboardPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/matches" element={<ProtectedRoute><NonGameLayout><MatchHistoryPage /></NonGameLayout></ProtectedRoute>} />
