@@ -360,7 +360,7 @@ export default function GameRoomPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
         <p className="text-destructive text-sm">{error}</p>
-        <Button onClick={() => navigate("/")}>Back to Lobby</Button>
+        <Button onClick={() => navigate("/lobby")}>Back to Lobby</Button>
       </div>
     );
   }
@@ -513,7 +513,7 @@ export default function GameRoomPage() {
             <div className="bg-background rounded-lg border p-6 m-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold">Match Over!</h2>
-                <Button variant="outline" size="sm" onClick={() => { navigateHome(); navigate("/"); }}>
+                <Button variant="outline" size="sm" onClick={() => { navigateHome(); navigate("/lobby"); }}>
                   Back to Lobby
                 </Button>
               </div>

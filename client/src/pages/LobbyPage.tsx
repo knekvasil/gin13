@@ -170,7 +170,7 @@ export default function LobbyPage() {
   }, [sendReq]);
 
   const recentMatches = matchHistory?.slice(0, 10) ?? [];
-  const topPlayers = (leaderboard ?? []).slice(0, 5);
+  const topPlayers = (leaderboard ?? []).slice(0, 10);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">

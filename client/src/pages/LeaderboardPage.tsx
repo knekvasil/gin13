@@ -20,7 +20,7 @@ export default function LeaderboardPage() {
         <h1 className="text-foreground text-2xl font-semibold tracking-tight">
           Leaderboard
         </h1>
-        <Button variant="outline" onClick={() => navigate("/")}>
+        <Button variant="outline" onClick={() => navigate("/lobby")}>
           Back to Lobby
         </Button>
       </div>

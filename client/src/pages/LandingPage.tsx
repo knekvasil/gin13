@@ -12,7 +12,7 @@ export default function LandingPage() {
     <div className="relative flex min-h-screen flex-col items-center justify-center p-4 text-center overflow-hidden">
       <CardScatter />
 
-      <div className="space-y-10 max-w-md relative">
+      <div className="space-y-10 max-w-md relative z-10">
         <div className="space-y-4">
           <h1 className="text-5xl font-black tracking-tight">Gin 13</h1>
           <p className="text-muted-foreground text-lg">
