@@ -46,12 +46,12 @@ function FaceDownCard({
       layoutId={layoutId}
       onClick={onClick}
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center rounded-md border-2 border-border",
+        "relative inline-flex shrink-0 items-center justify-center rounded-md border-2 border-border select-none",
         small ? "w-10 h-14" : "w-14 h-20",
         "bg-blue-900",
         disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
         selected && "ring-2 ring-yellow-400",
-        onClick && "cursor-pointer",
+        onClick ? "cursor-pointer" : "cursor-default",
         onClick && "hover:ring-2 hover:ring-primary",
       )}
       style={style}
@@ -135,14 +135,14 @@ export default function AnimatedCard({
       layoutId={layoutId}
       onClick={onClick}
       className={cn(
-        "relative inline-flex shrink-0 flex-col items-center justify-center rounded-md border-2",
+        "relative inline-flex shrink-0 flex-col items-center justify-center rounded-md border-2 select-none",
         small ? "w-10 h-14" : "w-14 h-20",
         wild ? "bg-amber-50 dark:bg-amber-950/30" : "bg-card",
         selected
           ? "border-yellow-400 ring-2 ring-yellow-400"
           : "border-border",
         disabled ? "opacity-50" : isDragging ? "opacity-0" : "opacity-100",
-        (isClickable || isDraggable) && "cursor-grab active:cursor-grabbing",
+        isClickable || isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         faceDown ? "" : (isClickable || isDraggable) && "hover:ring-2 hover:ring-primary",
         )}
         style={style}
