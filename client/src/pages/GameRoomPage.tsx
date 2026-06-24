@@ -401,16 +401,18 @@ export default function GameRoomPage() {
 
           <div className="relative flex flex-1 flex-col items-center">
             <div className="flex flex-col items-center gap-3 my-auto">
-              {/* Mobile: compact opponent chips row */}
-              <div className="flex items-center justify-center gap-1.5 sm:hidden flex-wrap">
+              {/* Mobile: opponent chips + melds */}
+              <div className="flex items-center justify-center gap-2 sm:hidden flex-wrap">
                 {opponents.map((op) => (
-                  <PlayerChip
-                    key={op.sessionId}
-                    player={op}
-                    isTurn={currentPlayer?.sessionId === op.sessionId}
-                    timerPct={currentPlayer?.sessionId === op.sessionId ? timerPct : undefined}
-                    rank={rankMap.get(op.sessionId)}
-                  />
+                  <div key={op.sessionId} className="flex flex-col items-center gap-0.5">
+                    <PlayerChip
+                      player={op}
+                      isTurn={currentPlayer?.sessionId === op.sessionId}
+                      timerPct={currentPlayer?.sessionId === op.sessionId ? timerPct : undefined}
+                      rank={rankMap.get(op.sessionId)}
+                    />
+                    <MeldsDisplay player={op} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} celebrating={showCelebration} />
+                  </div>
                 ))}
               </div>
 
