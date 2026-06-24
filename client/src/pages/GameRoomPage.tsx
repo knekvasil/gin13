@@ -5,7 +5,7 @@ import { fetchMatchDetail } from "../stats/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
-  DndContext, DragOverlay, closestCorners,
+  DndContext, DragOverlay, closestCenter,
   PointerSensor, TouchSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent, type CollisionDetection,
 } from "@dnd-kit/core";
@@ -140,6 +140,15 @@ export default function GameRoomPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const { data: matchDetail } = useQuery({
     queryKey: ["matchDetail", roomId, currentRound],
@@ -158,9 +167,9 @@ export default function GameRoomPage() {
       const filtered = args.droppableContainers.filter(
         (c) => String(c.id) === "staging-well" || !String(c.id).startsWith("staging-"),
       );
-      return closestCorners({ ...args, droppableContainers: filtered });
+      return closestCenter({ ...args, droppableContainers: filtered });
     }
-    return closestCorners(args);
+    return closestCenter(args);
   };
 
   const clearTimer = useCallback(() => {
@@ -401,20 +410,21 @@ export default function GameRoomPage() {
 
           <div className="relative flex flex-1 flex-col items-center">
             <div className="flex flex-col items-center gap-3 my-auto">
-              {/* Mobile: opponent chips + melds */}
-              <div className="flex items-center justify-center gap-2 sm:hidden flex-wrap">
-                {opponents.map((op) => (
-                  <div key={op.sessionId} className="flex flex-col items-center gap-0.5">
-                    <PlayerChip
-                      player={op}
-                      isTurn={currentPlayer?.sessionId === op.sessionId}
-                      timerPct={currentPlayer?.sessionId === op.sessionId ? timerPct : undefined}
-                      rank={rankMap.get(op.sessionId)}
-                    />
-                    <MeldsDisplay player={op} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} celebrating={showCelebration} />
-                  </div>
-                ))}
-              </div>
+              {isMobile && (
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {opponents.map((op) => (
+                    <div key={op.sessionId} className="flex flex-col items-center gap-0.5">
+                      <PlayerChip
+                        player={op}
+                        isTurn={currentPlayer?.sessionId === op.sessionId}
+                        timerPct={currentPlayer?.sessionId === op.sessionId ? timerPct : undefined}
+                        rank={rankMap.get(op.sessionId)}
+                      />
+                      <MeldsDisplay player={op} wildRank={wildRank} getMeldGroups={getMeldGroups} isMeldActive={canAddToMeld} celebrating={showCelebration} />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="hidden sm:flex items-start justify-center gap-12 sm:gap-24">
                 {leftOpponent && (
