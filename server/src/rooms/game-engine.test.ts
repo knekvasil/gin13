@@ -2418,6 +2418,58 @@ describe("bug reproduction: append to right of straight", () => {
     expect(p1.board.length).toBe(15);
   });
 
+  // Bug C: (A,2,W,W,5) → append 6 to right should give (A,2,W,W,5,6), not replace 5
+  it("Bug C: appends 6 to right of (A,2,W,W,5) — 5 stays, 6 at end (wildRank=11)", () => {
+    const wildRank = 11;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 1, suit: 0 },
+        { rank: 2, suit: 0 },
+        { rank: wildRank, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: 5, suit: 0 },
+        { rank: 6, suit: 0 }, // card to add
+      ],
+      [{ rank: 1, suit: 0 }, { rank: 2, suit: 0 }, { rank: wildRank, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 5, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, false, "end");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[5]!.rank).toBe(6);
+    expect(p1.board[4]!.rank).toBe(5);
+  });
+
+  // Bug D: append with preferSwap=undefined to right of (A,2,W,W,5)
+  it("Bug D: appends 6 to right of (A,2,W,W,5) with preferSwap=undefined — 5 stays", () => {
+    const wildRank = 7;
+    const { state, meldGroupId } = setupState(
+      wildRank,
+      [
+        { rank: 1, suit: 0 },
+        { rank: 2, suit: 0 },
+        { rank: wildRank, suit: 0 },
+        { rank: wildRank, suit: 1 },
+        { rank: 5, suit: 0 },
+        { rank: 6, suit: 0 },
+      ],
+      [{ rank: 1, suit: 0 }, { rank: 2, suit: 0 }, { rank: wildRank, suit: 0 }, { rank: wildRank, suit: 1 }, { rank: 5, suit: 0 }],
+    );
+    const p1 = state.players[0]!;
+    expect(p1.board.length).toBe(5);
+    expect(p1.hand.length).toBe(1);
+
+    addToMeld(state, "s1", 0, meldGroupId, undefined, "end");
+
+    expect(p1.board.length).toBe(6);
+    expect(p1.board[5]!.rank).toBe(6);
+    expect(p1.board[4]!.rank).toBe(5);
+  });
+
   it("accepts (W,K,W,Q) — cards can form straight 10-13 even if hand order is weird", () => {
     const wildRank = 11;
     const state = createGameState();
