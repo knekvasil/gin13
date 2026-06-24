@@ -132,15 +132,19 @@ async function botLeague(): Promise<void> {
       include: { rounds: { orderBy: { roundNumber: "asc" } }, standings: true },
     });
 
+    const allStats = (await prisma.playerStats.findMany({
+      where: { userId: { in: botIds } },
+    })) as any[];
+    const seasonEloMap = new Map(allStats.map((s: any) => [s.userId, s.elo]));
+
     for (const botId of botIds) {
-      const user = await prisma.user.findUnique({ where: { id: botId } });
       await prisma.botStanding.create({
         data: {
           seasonId: season.id,
           botId,
           matchPoints: 0,
           matchesPlayed: 0,
-          tiebreakElo: user ? 1000 : 1000,
+          tiebreakElo: seasonEloMap.get(botId) ?? 1000,
         },
       });
     }
@@ -186,15 +190,10 @@ async function botLeague(): Promise<void> {
     orderBy: { matchPoints: "desc" },
   }) as any[];
 
-  const playerRankings = (await prisma.playerStats.findMany({
-    where: { userId: { in: botIds } },
-  })) as any[];
-  const eloMap = new Map(playerRankings.map((s: any) => [s.userId, s.elo]));
-
   const standingsWithElo = standings.map((s: any) => ({
     botId: s.botId,
     matchPoints: s.matchPoints,
-    tiebreakElo: eloMap.get(s.botId) ?? 1000,
+    tiebreakElo: s.tiebreakElo, // frozen at season start
   }));
 
   const pods = swissPairings(
@@ -215,14 +214,12 @@ async function botLeague(): Promise<void> {
     for (let rank = 0; rank < mp.length; rank++) {
       const mpEntry = mp[rank]!;
       const points = [3, 2, 1, 0][rank] ?? 0;
-      const newElo = eloMap.get(mpEntry.userId) ?? 1000;
 
       await prisma.botStanding.update({
         where: { seasonId_botId: { seasonId: season!.id, botId: mpEntry.userId } },
         data: {
           matchPoints: { increment: points },
           matchesPlayed: { increment: 1 },
-          tiebreakElo: newElo,
         },
       });
     }
