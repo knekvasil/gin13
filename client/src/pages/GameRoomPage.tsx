@@ -385,23 +385,38 @@ export default function GameRoomPage() {
 
         <div className="relative flex flex-1 flex-col overflow-hidden">
           {topOpponent && (
-            <OpponentSection
-              player={topOpponent}
-              wildRank={wildRank}
-              getMeldGroups={getMeldGroups}
-              isMeldActive={canAddToMeld}
-              timerPct={currentPlayer?.sessionId === topOpponent.sessionId ? timerPct : undefined}
-              isTurn={currentPlayer?.sessionId === topOpponent.sessionId}
-              rank={rankMap.get(topOpponent.sessionId)}
-              celebrating={showCelebration}
-            />
+            <div className="max-sm:hidden">
+              <OpponentSection
+                player={topOpponent}
+                wildRank={wildRank}
+                getMeldGroups={getMeldGroups}
+                isMeldActive={canAddToMeld}
+                timerPct={currentPlayer?.sessionId === topOpponent.sessionId ? timerPct : undefined}
+                isTurn={currentPlayer?.sessionId === topOpponent.sessionId}
+                rank={rankMap.get(topOpponent.sessionId)}
+                celebrating={showCelebration}
+              />
+            </div>
           )}
 
           <div className="relative flex flex-1 flex-col items-center">
             <div className="flex flex-col items-center gap-3 my-auto">
-              <div className="flex items-start justify-center gap-12 sm:gap-24">
+              {/* Mobile: compact opponent chips row */}
+              <div className="flex items-center justify-center gap-1.5 sm:hidden flex-wrap">
+                {opponents.map((op) => (
+                  <PlayerChip
+                    key={op.sessionId}
+                    player={op}
+                    isTurn={currentPlayer?.sessionId === op.sessionId}
+                    timerPct={currentPlayer?.sessionId === op.sessionId ? timerPct : undefined}
+                    rank={rankMap.get(op.sessionId)}
+                  />
+                ))}
+              </div>
+
+              <div className="hidden sm:flex items-start justify-center gap-12 sm:gap-24">
                 {leftOpponent && (
-                  <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2 max-sm:hidden">
+                  <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2">
                     <PlayerChip player={leftOpponent} isTurn={currentPlayer?.sessionId === leftOpponent.sessionId} timerPct={currentPlayer?.sessionId === leftOpponent.sessionId ? timerPct : undefined} rank={rankMap.get(leftOpponent.sessionId)} />
                     <div className="flex gap-0.5">
                       {leftOpponent.hand.map((_, i) => (
@@ -413,7 +428,7 @@ export default function GameRoomPage() {
                 )}
 
                 {rightOpponent && (
-                  <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2 max-sm:hidden">
+                  <div className="flex flex-col items-center gap-2 p-1.5 sm:p-2">
                     <PlayerChip player={rightOpponent} isTurn={currentPlayer?.sessionId === rightOpponent.sessionId} timerPct={currentPlayer?.sessionId === rightOpponent.sessionId ? timerPct : undefined} rank={rankMap.get(rightOpponent.sessionId)} />
                     <div className="flex gap-0.5">
                       {rightOpponent.hand.map((_, i) => (
