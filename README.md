@@ -1,6 +1,10 @@
 # Gin 13
 
+> [How to Play](https://gin13.kajnekvasil.com/how-to) · [Bot League](https://gin13.kajnekvasil.com/bot-league)
+
 A multi-round card game for 3–4 players, similar to gin/rummy, with a unique wild-card rotation over 13 rounds. Built with Colyseus (WebSocket real-time), React, and PostgreSQL.
+
+![Game board screenshot](docs/screenshot.png)
 
 ## Rules
 
