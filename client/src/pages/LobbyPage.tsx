@@ -34,7 +34,6 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import PlayNowPopover from "../components/PlayNowPopover";
 import PlayerStatsPanel from "../components/PlayerStatsPanel";
 import FriendsPanel from "../components/FriendsPanel";
 
@@ -42,7 +41,7 @@ interface RoomEntry {
   roomId: string;
   clients: number;
   maxClients: number;
-  metadata?: { totalRounds?: number; players?: number };
+  metadata?: { totalRounds?: number; players?: number; status?: string };
 }
 
 function rankLabel(r: number | null): string {
@@ -82,7 +81,7 @@ export default function LobbyPage() {
     const fetchRooms = async () => {
       try {
         const available = await c.getAvailableRooms("game_room");
-        setRooms(available as RoomEntry[]);
+        setRooms((available as RoomEntry[]).filter((r) => r.metadata?.status !== "playing"));
       } catch { }
     };
 
@@ -96,35 +95,9 @@ export default function LobbyPage() {
     if (!c) return;
     try {
       const available = await c.getAvailableRooms("game_room");
-      setRooms(available as RoomEntry[]);
+      setRooms((available as RoomEntry[]).filter((r) => r.metadata?.status !== "playing"));
     } catch { }
   }, []);
-
-  const handleQuickPlay = useCallback(async () => {
-    const c = clientRef.current;
-    const token = localStorage.getItem("jwt");
-    if (!c || !token) return;
-    try {
-      const room = await c.joinOrCreate("game_room", {});
-      navigate(`/game/${room.roomId}`);
-      room.leave();
-    } catch (err) {
-      console.error("quick play failed", err);
-    }
-  }, [navigate]);
-
-  const handlePractice = useCallback(async (bots: number) => {
-    const c = clientRef.current;
-    const token = localStorage.getItem("jwt");
-    if (!c || !token) return;
-    try {
-      const room = await c.create("game_room", { totalRounds: 13, bots });
-      navigate(`/game/${room.roomId}`);
-      room.leave();
-    } catch (err) {
-      console.error("practice room failed", err);
-    }
-  }, [navigate]);
 
   const handleJoin = useCallback(
     async (roomId: string) => {
@@ -176,7 +149,7 @@ export default function LobbyPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PlayNowPopover onQuickPlay={handleQuickPlay} onPractice={handlePractice} />
+        <Button onClick={() => navigate("/create-lobby")}>Create a Lobby</Button>
         <Button variant="ghost" size="icon" onClick={() => navigate("/bot-league")} className="size-8">
           <Bot className="size-4" />
         </Button>
@@ -208,14 +181,9 @@ export default function LobbyPage() {
               <div className="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-3 text-xs">
                 <Swords className="size-8 opacity-40" />
                 <span>No open rooms</span>
-                <span className="flex gap-2">
-                  <Button size="xs" onClick={handleQuickPlay}>
-                    Quick Play
-                  </Button>
-                  <Button size="xs" variant="outline" onClick={() => handlePractice(2)}>
-                    Practice
-                  </Button>
-                </span>
+                <Button size="xs" onClick={() => navigate("/create-lobby")}>
+                  Create a Lobby
+                </Button>
               </div>
             ) : (
               <div className="space-y-1.5">

@@ -8,6 +8,7 @@ import HowToPage from "./pages/HowToPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import LandingPage from "./pages/LandingPage";
+import CreateLobbyPage from "./pages/CreateLobbyPage";
 import LobbyPage from "./pages/LobbyPage";
 import GameRoomPage from "./pages/GameRoomPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/register" element={<PublicRoute><NonGameLayout><RegisterPage /></NonGameLayout></PublicRoute>} />
               <Route path="/" element={<LandingPage />} />
               <Route path="/lobby" element={<ProtectedRoute><NonGameLayout><LobbyPage /></NonGameLayout></ProtectedRoute>} />
+              <Route path="/create-lobby" element={<ProtectedRoute><NonGameLayout><CreateLobbyPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/game/:roomId" element={<ProtectedRoute><GameRoomPage /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><NonGameLayout><LeaderboardPage /></NonGameLayout></ProtectedRoute>} />
               <Route path="/matches" element={<ProtectedRoute><NonGameLayout><MatchHistoryPage /></NonGameLayout></ProtectedRoute>} />
