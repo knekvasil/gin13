@@ -35,18 +35,22 @@ interface PlayerStats {
   percentiles: Record<string, number>;
   eloHistory: { date: string; elo: number }[];
   rankHistory: { date: string; rank: number }[];
-  currentForm: { result: "W" | "L"; score: number }[];
+  currentForm: { rank: number; score: number }[];
 }
 
-function FormBadge({ result }: { result: "W" | "L" }) {
+const FORM_COLORS = [
+  "bg-green-500/15 text-green-500",
+  "bg-yellow-500/15 text-yellow-500",
+  "bg-orange-500/15 text-orange-500",
+  "bg-red-500/15 text-red-500",
+];
+
+function FormBadge({ rank }: { rank: number }) {
   return (
     <span
-      className={`inline-flex size-5 items-center justify-center rounded-full text-[0.6rem] font-bold leading-none ${result === "W"
-        ? "bg-primary/15 text-primary"
-        : "bg-destructive/15 text-destructive"
-      }`}
+      className={`inline-flex size-5 items-center justify-center rounded-full text-[0.6rem] font-bold leading-none ${FORM_COLORS[rank - 1] ?? FORM_COLORS[3]}`}
     >
-      {result}
+      {rank}
     </span>
   );
 }
@@ -86,7 +90,7 @@ export default function PlayerStatsPanel({ stats }: PlayerStatsPanelProps) {
             </p>
             <div className="flex gap-1">
               {currentForm.map((f, i) => (
-                <FormBadge key={i} result={f.result} />
+                <FormBadge key={i} rank={f.rank} />
               ))}
             </div>
           </div>

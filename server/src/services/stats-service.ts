@@ -78,9 +78,9 @@ export function computeWinStreaks(
 
 export function computeCurrentForm(
   results: { rank: number | null; score: number }[],
-): { result: "W" | "L"; score: number }[] {
+): { rank: number; score: number }[] {
   return results.slice(0, 10).map((r) => ({
-    result: r.rank === 1 ? "W" as const : "L" as const,
+    rank: r.rank ?? 4,
     score: r.score,
   }));
 }

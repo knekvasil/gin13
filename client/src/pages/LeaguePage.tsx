@@ -16,11 +16,20 @@ import {
 } from "../components/ui/table";
 import { Button } from "../components/ui/button";
 
-function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span className="text-lg">🥇</span>;
-  if (rank === 2) return <span className="text-lg">🥈</span>;
-  if (rank === 3) return <span className="text-lg">🥉</span>;
-  return <span className="text-muted-foreground text-xs">#{rank}</span>;
+const RANK_COLORS = [
+  "text-yellow-500",
+  "text-gray-400",
+  "text-amber-700",
+  "text-muted-foreground",
+];
+
+function RankDisplay({ rank, small }: { rank: number; small?: boolean }) {
+  return (
+    <span className={`font-bold tabular-nums ${RANK_COLORS[rank - 1] ?? RANK_COLORS[3]} ${small ? "text-xs" : "text-sm"}`}>
+      {rank}
+      <span className="text-[0.55em] align-top">{rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th"}</span>
+    </span>
+  );
 }
 
 function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }) {
@@ -43,7 +52,7 @@ function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }
             className="cursor-pointer hover:bg-muted/50"
             onClick={() => navigate(`/bot-league/${s.botId}`)}
           >
-            <TableCell><RankBadge rank={i + 1} /></TableCell>
+            <TableCell><RankDisplay rank={i + 1} /></TableCell>
             <TableCell className="font-medium">{s.name}</TableCell>
             <TableCell className="text-right font-semibold tabular-nums">{s.matchPoints}</TableCell>
             <TableCell className="text-right tabular-nums">{s.matchesPlayed}</TableCell>
@@ -63,7 +72,7 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
   if (!data) return null;
 
   return (
-    <div className="space-y-2 px-3 pb-3">
+    <div className="space-y-3 px-3 pb-3">
       {data.rounds.map((r) => (
         <div key={r.roundNumber} className="rounded-md border">
           <button
@@ -76,19 +85,21 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
             </span>
           </button>
           {expandedRound === r.roundNumber && (
-            <div className="space-y-2 border-t px-3 py-2">
-              {r.pods.map((pod, pi) => (
-                <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs">
-                  <p className="text-muted-foreground mb-1 font-medium">Pod {pi + 1}</p>
-                  {pod.results.map((res) => (
-                    <div key={res.botId} className="flex items-center gap-2 py-0.5">
-                      <RankBadge rank={res.rank} />
-                      <span>{res.name}</span>
-                      <span className="text-muted-foreground ml-auto">{res.score} pts</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
+            <div className="border-t px-3 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {r.pods.map((pod, pi) => (
+                  <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs">
+                    <p className="text-muted-foreground mb-1 font-medium">Pod {pi + 1}</p>
+                    {pod.results.map((res) => (
+                      <div key={res.botId} className="flex items-center gap-2 py-0.5">
+                        <RankDisplay rank={res.rank} small />
+                        <span>{res.name}</span>
+                        <span className="text-muted-foreground ml-auto">{res.score} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -162,7 +173,7 @@ export default function LeaguePage() {
                   <div className="text-muted-foreground mt-1 flex gap-3">
                     {s.topThree.map((t, i) => (
                       <span key={t.botId}>
-                        {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {t.matchPoints}pts
+                        <RankDisplay rank={i + 1} small /> {t.matchPoints}pts
                       </span>
                     ))}
                   </div>

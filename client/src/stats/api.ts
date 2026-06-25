@@ -47,7 +47,7 @@ export interface PlayerStats {
   rankDistribution: { rank: number; count: number }[];
   longestGameWinStreak: number;
   currentGameWinStreak: number;
-  currentForm: { result: "W" | "L"; score: number }[];
+  currentForm: { rank: number; score: number }[];
 }
 
 export interface FriendEntry {
