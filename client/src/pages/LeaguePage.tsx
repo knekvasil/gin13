@@ -32,6 +32,14 @@ function RankDisplay({ rank, small }: { rank: number; small?: boolean }) {
   );
 }
 
+const FORM_BAR_COLORS = ["bg-green-500", "bg-yellow-500", "bg-orange-500", "bg-red-500"];
+
+function FormBar({ rank }: { rank: number }) {
+  return (
+    <div className={`h-3 w-1 rounded-[1px] ${FORM_BAR_COLORS[rank - 1] ?? FORM_BAR_COLORS[3]}`} />
+  );
+}
+
 function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }) {
   const navigate = useNavigate();
   return (
@@ -88,13 +96,13 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
             <div className="border-t px-3 py-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                 {r.pods.map((pod, pi) => (
-                  <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs">
+                  <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs min-w-0">
                     <p className="text-muted-foreground mb-1 font-medium">Pod {pi + 1}</p>
                     {pod.results.map((res) => (
-                      <div key={res.botId} className="flex items-center gap-2 py-0.5">
-                        <RankDisplay rank={res.rank} small />
-                        <span>{res.name}</span>
-                        <span className="text-muted-foreground ml-auto">{res.score} pts</span>
+                      <div key={res.botId} className="flex items-center gap-1.5 py-0.5">
+                        <FormBar rank={res.rank} />
+                        <span className="truncate min-w-0 flex-shrink">{res.name}</span>
+                        <span className="text-muted-foreground ml-auto shrink-0 tabular-nums">{res.score}</span>
                       </div>
                     ))}
                   </div>

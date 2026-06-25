@@ -17,6 +17,7 @@ import {
 import {
   Trophy,
   Swords,
+  Bot,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -174,10 +175,10 @@ export default function LobbyPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <PlayNowPopover onQuickPlay={handleQuickPlay} onPractice={handlePractice} />
-        <Button variant="outline" size="sm" onClick={() => navigate("/bot-league")}>
-          Bot League
+        <Button variant="ghost" size="icon" onClick={() => navigate("/bot-league")} className="size-8">
+          <Bot className="size-4" />
         </Button>
       </div>
 

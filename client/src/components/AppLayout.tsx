@@ -139,7 +139,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4 sm:px-6">
-        <a href="/" className="text-foreground text-lg font-semibold tracking-tight hover:underline">
+        <a href="/" className="text-foreground text-lg font-semibold tracking-tight">
           Gin 13
         </a>
         <div className="flex items-center gap-1">
