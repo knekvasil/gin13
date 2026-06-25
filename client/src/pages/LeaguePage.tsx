@@ -155,33 +155,35 @@ export default function LeaguePage() {
         )}
 
         {tab === "past" && (
-          <div className="space-y-2 p-3">
+          <div className="p-4">
             {(!pastSeasons || pastSeasons.seasons.length === 0) && (
-              <p className="text-muted-foreground text-xs text-center">No completed seasons yet.</p>
+              <p className="text-muted-foreground text-xs">No completed seasons yet.</p>
             )}
-            {(pastSeasons?.seasons ?? []).map((s) => (
-              <div
-                key={s.id}
-                className={`cursor-pointer rounded-md border p-3 text-xs transition-colors hover:bg-muted/50 ${
-                  selectedPastSeason === s.id ? "bg-muted" : ""
-                }`}
-                onClick={() => setSelectedPastSeason(selectedPastSeason === s.id ? null : s.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-muted-foreground">{s.roundCount} rounds</span>
-                </div>
-                {s.topThree.length > 0 && (
-                  <div className="text-muted-foreground mt-1 flex gap-3">
-                    {s.topThree.map((t, i) => (
-                      <span key={t.botId}>
-                        <RankDisplay rank={i + 1} small /> {t.matchPoints}pts
-                      </span>
-                    ))}
+            <div className="space-y-2">
+              {(pastSeasons?.seasons ?? []).map((s) => (
+                <div
+                  key={s.id}
+                  className={`cursor-pointer rounded-md border p-3 text-xs transition-colors hover:bg-muted/50 ${
+                    selectedPastSeason === s.id ? "bg-muted" : ""
+                  }`}
+                  onClick={() => setSelectedPastSeason(selectedPastSeason === s.id ? null : s.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-muted-foreground">{s.roundCount} rounds</span>
                   </div>
-                )}
-              </div>
-            ))}
+                  {s.topThree.length > 0 && (
+                    <div className="text-muted-foreground mt-1 flex gap-3">
+                      {s.topThree.map((t, i) => (
+                        <span key={t.botId}>
+                          <RankDisplay rank={i + 1} small /> {t.matchPoints}pts
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
