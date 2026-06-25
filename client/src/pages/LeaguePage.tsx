@@ -150,12 +150,14 @@ export default function LeaguePage() {
           seasonData ? <StandingsTable data={seasonData} /> : <p className="text-muted-foreground p-4 text-xs">No active season.</p>
         )}
 
-        {tab === "rounds" && seasonData && <RoundDetails seasonId={seasonData.id} />}
+        {tab === "rounds" && (
+          seasonData ? <RoundDetails seasonId={seasonData.id} /> : <p className="text-muted-foreground p-4 text-xs">No active season.</p>
+        )}
 
         {tab === "past" && (
           <div className="space-y-2 p-3">
-            {pastSeasons?.seasons.length === 0 && (
-              <p className="text-muted-foreground text-xs">No completed seasons yet.</p>
+            {(!pastSeasons || pastSeasons.seasons.length === 0) && (
+              <p className="text-muted-foreground text-xs text-center">No completed seasons yet.</p>
             )}
             {(pastSeasons?.seasons ?? []).map((s) => (
               <div
