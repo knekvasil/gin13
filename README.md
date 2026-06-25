@@ -4,7 +4,7 @@
 
 A multi-round card game for 3–4 players, similar to gin/rummy, with a unique wild-card rotation over 13 rounds. Built with Colyseus (WebSocket real-time), React, and PostgreSQL.
 
-![Game board screenshot](docs/screenshot.png)
+![Game board screenshot](docs/readme-ingame-screenshot.png)
 
 ## Rules
 
