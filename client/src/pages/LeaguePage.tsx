@@ -72,7 +72,7 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
   if (!data) return null;
 
   return (
-    <div className="space-y-3 px-3 pb-3">
+    <div className="space-y-3 px-3 py-3">
       {data.rounds.map((r) => (
         <div key={r.roundNumber} className="rounded-md border">
           <button
