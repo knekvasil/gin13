@@ -14,7 +14,7 @@ export interface LeagueCurrent {
     name: string;
     roundCount: number;
     currentRound: number;
-    standings: { botId: string; name: string; matchPoints: number; matchesPlayed: number; elo: number }[];
+    standings: { botId: string; name: string; matchPoints: number; matchesPlayed: number; elo: number; roundRanks: (number | null)[] }[];
   } | null;
 }
 

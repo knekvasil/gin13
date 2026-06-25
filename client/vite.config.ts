@@ -25,6 +25,7 @@ export default defineConfig({
       "/recent-opponents": "http://localhost:2567",
       "/headtohead": "http://localhost:2567",
       "/health": "http://localhost:2567",
+      "/league": "http://localhost:2567",
     },
   },
 });

@@ -31,13 +31,45 @@ router.get("/league/current", async (_req: Request, res: Response) => {
 
     const completedRounds = season.rounds.filter((r: any) => r.status === "COMPLETE").length;
 
-    const standings = season.standings.map((s: any) => ({
-      botId: s.botId,
-      name: nameMap.get(s.botId) ?? s.botId,
-      matchPoints: s.matchPoints,
-      matchesPlayed: s.matchesPlayed,
-      elo: eloMap.get(s.botId) ?? 1000,
-    }));
+    const botMatches = (await prisma.botMatch.findMany({
+      where: { round: { seasonId: season.id, status: "COMPLETE" } },
+      include: { round: true },
+    })) as any[];
+
+    const matchIds = botMatches.map((bm: any) => bm.matchId);
+    const matchPlayers = (await prisma.matchPlayer.findMany({
+      where: { matchId: { in: matchIds } },
+    })) as any[];
+
+    const placementMap = new Map<string, Map<number, number>>();
+    for (const bm of botMatches) {
+      for (const mp of matchPlayers) {
+        if (mp.matchId !== bm.matchId) continue;
+        if (mp.finalRank == null) continue;
+        let botPlacements = placementMap.get(mp.userId);
+        if (!botPlacements) {
+          botPlacements = new Map();
+          placementMap.set(mp.userId, botPlacements);
+        }
+        botPlacements.set(bm.round.roundNumber, mp.finalRank);
+      }
+    }
+
+    const standings = season.standings.map((s: any) => {
+      const placements = placementMap.get(s.botId);
+      const roundRanks: (number | null)[] = [];
+      for (let r = 1; r <= season.roundCount; r++) {
+        roundRanks.push(placements?.get(r) ?? null);
+      }
+      return {
+        botId: s.botId,
+        name: nameMap.get(s.botId) ?? s.botId,
+        matchPoints: s.matchPoints,
+        matchesPlayed: s.matchesPlayed,
+        elo: eloMap.get(s.botId) ?? 1000,
+        roundRanks,
+      };
+    });
 
     res.json({
       season: {

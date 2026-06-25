@@ -16,27 +16,21 @@ import {
 } from "../components/ui/table";
 import { Button } from "../components/ui/button";
 
-const RANK_COLORS = [
-  "text-yellow-500",
-  "text-gray-400",
-  "text-amber-700",
-  "text-muted-foreground",
-];
-
-function RankDisplay({ rank, small }: { rank: number; small?: boolean }) {
-  return (
-    <span className={`font-bold tabular-nums ${RANK_COLORS[rank - 1] ?? RANK_COLORS[3]} ${small ? "text-xs" : "text-sm"}`}>
-      {rank}
-      <span className="text-[0.55em] align-top">{rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th"}</span>
-    </span>
-  );
-}
-
 const FORM_BAR_COLORS = ["bg-green-500", "bg-yellow-500", "bg-orange-500", "bg-red-500"];
 
 function FormBar({ rank }: { rank: number }) {
   return (
     <div className={`h-3 w-1 rounded-[1px] ${FORM_BAR_COLORS[rank - 1] ?? FORM_BAR_COLORS[3]}`} />
+  );
+}
+
+function FormRow({ ranks }: { ranks: (number | null)[] }) {
+  return (
+    <div className="flex items-center gap-[1px]">
+      {ranks.map((r, i) => (
+        <FormBar key={i} rank={r ?? 4} />
+      ))}
+    </div>
   );
 }
 
@@ -46,25 +40,27 @@ function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-10">#</TableHead>
-          <TableHead>Bot</TableHead>
-          <TableHead className="text-right">MP</TableHead>
-          <TableHead className="text-right">Pld</TableHead>
-          <TableHead className="text-right">ELO</TableHead>
+          <TableHead className="w-8 text-xs">#</TableHead>
+          <TableHead className="text-xs">Bot</TableHead>
+          <TableHead className="text-xs">Form</TableHead>
+          <TableHead className="text-right text-xs">MP</TableHead>
+          <TableHead className="text-right text-xs">Pld</TableHead>
+          <TableHead className="text-right text-xs">ELO</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.standings.map((s, i) => (
+        {data.standings.map((s: any, i: number) => (
           <TableRow
             key={s.botId}
             className="cursor-pointer hover:bg-muted/50"
             onClick={() => navigate(`/bot-league/${s.botId}`)}
           >
-            <TableCell><RankDisplay rank={i + 1} /></TableCell>
-            <TableCell className="font-medium">{s.name}</TableCell>
-            <TableCell className="text-right font-semibold tabular-nums">{s.matchPoints}</TableCell>
-            <TableCell className="text-right tabular-nums">{s.matchesPlayed}</TableCell>
-            <TableCell className="text-right tabular-nums">{s.elo}</TableCell>
+            <TableCell className="text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
+            <TableCell className="text-xs font-medium">{s.name}</TableCell>
+            <TableCell><FormRow ranks={s.roundRanks} /></TableCell>
+            <TableCell className="text-right text-xs font-semibold tabular-nums">{s.matchPoints}</TableCell>
+            <TableCell className="text-right text-xs tabular-nums">{s.matchesPlayed}</TableCell>
+            <TableCell className="text-right text-xs tabular-nums">{s.elo}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -184,7 +180,7 @@ export default function LeaguePage() {
                     <div className="text-muted-foreground mt-1 flex gap-3">
                       {s.topThree.map((t, i) => (
                         <span key={t.botId}>
-                          <RankDisplay rank={i + 1} small /> {t.matchPoints}pts
+                          <FormBar rank={i + 1} /> {t.matchPoints}pts
                         </span>
                       ))}
                     </div>
