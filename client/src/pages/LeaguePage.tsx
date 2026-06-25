@@ -5,6 +5,7 @@ import {
   useLeagueSeasons,
   useLeagueRounds,
   type LeagueCurrent,
+  type LeagueRoundsResponse,
 } from "../stats/league-hooks";
 import {
   Table,
@@ -16,22 +17,28 @@ import {
 } from "../components/ui/table";
 import { Button } from "../components/ui/button";
 
-const FORM_BAR_COLORS = ["bg-green-500", "bg-yellow-500", "bg-orange-500", "bg-red-500"];
+const FORM_BAR_COLORS = ["bg-green-500", "bg-yellow-500", "bg-orange-500", "bg-red-500", "bg-muted-foreground/20"];
 
-function FormBar({ rank }: { rank: number }) {
-  return (
-    <div className={`h-3 w-1 rounded-[1px] ${FORM_BAR_COLORS[rank - 1] ?? FORM_BAR_COLORS[3]}`} />
-  );
+function FormBar({ rank, empty }: { rank?: number; empty?: boolean }) {
+  if (empty) return <div className="h-3 w-1 rounded-[1px] bg-muted-foreground/20" />;
+  return <div className={`h-3 w-1 rounded-[1px] ${FORM_BAR_COLORS[(rank! - 1)] ?? FORM_BAR_COLORS[3]}`} />;
 }
 
 function FormRow({ ranks }: { ranks: (number | null)[] }) {
   return (
     <div className="flex items-center gap-[1px]">
       {ranks.map((r, i) => (
-        <FormBar key={i} rank={r ?? 4} />
+        <FormBar key={i} rank={r ?? undefined} empty={r === null} />
       ))}
     </div>
   );
+}
+
+const RANK_LABELS = ["", "1st", "2nd", "3rd", "4th"];
+const RANK_COLORS = ["", "text-yellow-500", "text-gray-400", "text-amber-700", "text-muted-foreground"];
+
+function RankLabel({ rank }: { rank: number }) {
+  return <span className={`font-bold text-xs tabular-nums ${RANK_COLORS[rank] ?? RANK_COLORS[4]}`}>{RANK_LABELS[rank] ?? `${rank}th`}</span>;
 }
 
 function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }) {
@@ -94,11 +101,14 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
                 {r.pods.map((pod, pi) => (
                   <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs min-w-0">
                     <p className="text-muted-foreground mb-1 font-medium">Pod {pi + 1}</p>
-                    {pod.results.map((res) => (
+                    {pod.results.map((res: any) => (
                       <div key={res.botId} className="flex items-center gap-1.5 py-0.5">
-                        <FormBar rank={res.rank} />
+                        <RankLabel rank={res.rank} />
                         <span className="truncate min-w-0 flex-shrink">{res.name}</span>
-                        <span className="text-muted-foreground ml-auto shrink-0 tabular-nums">{res.score}</span>
+                        <div className="ml-auto flex items-center gap-1">
+                          <FormRow ranks={res.roundRanks} />
+                          <span className="text-muted-foreground shrink-0 tabular-nums min-w-[2ch] text-right">{res.score}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

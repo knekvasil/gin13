@@ -50,13 +50,19 @@ export interface LeagueRounds {
     status: string;
     pods: {
       matchId: string;
-      results: { botId: string; name: string; rank: number; score: number }[];
+      results: { botId: string; name: string; rank: number; score: number; roundRanks: (number | null)[] }[];
     }[];
   }[];
 }
 
+export interface LeagueRoundsResponse {
+  seasonName: string;
+  roundCount: number;
+  rounds: LeagueRounds["rounds"];
+}
+
 export function useLeagueRounds(seasonId: string | undefined) {
-  return useQuery<LeagueRounds>({
+  return useQuery<LeagueRoundsResponse>({
     queryKey: ["league", "rounds", seasonId],
     queryFn: () => fetchJson(`/league/rounds/${seasonId}`),
     enabled: !!seasonId,

@@ -149,21 +149,46 @@ router.get("/league/rounds/:seasonId", async (req: Request, res: Response) => {
     })) as any[];
     const nameMap = new Map(users.map((u: any) => [u.id, u.displayName]));
 
+    // Build per-bot placement map across all rounds
+    const placementMap = new Map<string, Map<number, number>>();
+    for (const r of rounds) {
+      for (const m of r.matches) {
+        const mpList = matchPlayerMap.get(m.matchId) ?? [];
+        for (const mp of mpList) {
+          if (mp.finalRank == null) continue;
+          let botPlacements = placementMap.get(mp.userId);
+          if (!botPlacements) {
+            botPlacements = new Map();
+            placementMap.set(mp.userId, botPlacements);
+          }
+          botPlacements.set(r.roundNumber, mp.finalRank);
+        }
+      }
+    }
+
     const roundDetails = rounds.map((r: any) => ({
       roundNumber: r.roundNumber,
       status: r.status,
       pods: r.matches.map((m: any) => ({
         matchId: m.matchId,
-        results: (matchPlayerMap.get(m.matchId) ?? []).map((mp: any) => ({
-          botId: mp.userId,
-          name: nameMap.get(mp.userId) ?? mp.userId,
-          rank: mp.finalRank,
-          score: mp.score,
-        })),
+        results: (matchPlayerMap.get(m.matchId) ?? []).map((mp: any) => {
+          const placements = placementMap.get(mp.userId);
+          const roundRanks: (number | null)[] = [];
+          for (let rn = 1; rn <= season.roundCount; rn++) {
+            roundRanks.push(placements?.get(rn) ?? null);
+          }
+          return {
+            botId: mp.userId,
+            name: nameMap.get(mp.userId) ?? mp.userId,
+            rank: mp.finalRank,
+            score: mp.score,
+            roundRanks,
+          };
+        }),
       })),
     }));
 
-    res.json({ seasonName: season.name, rounds: roundDetails });
+    res.json({ seasonName: season.name, roundCount: season.roundCount, rounds: roundDetails });
   } catch (err) {
     console.error("league rounds error", err);
     res.status(500).json({ error: "internal server error" });
