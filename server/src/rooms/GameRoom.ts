@@ -27,6 +27,8 @@ const RECONNECT_TIMEOUT_MS = 60_000;
 const TURN_TIMEOUT_MS = 60_000;
 let nextBotIndex = 0;
 
+const BOT_NAMES = ["Alpha","Beta","Gamma","Delta","Echo","Foxtrot","Golf","Hotel","India","Juliett","Kilo","Lima","Mike","November","Oscar","Papa","Quebec","Romeo","Sierra","Tango","Uniform","Victor","Whiskey","X-ray"];
+
 export class GameRoom extends Room<GameState> {
   private disconnectTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private turnTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,12 +56,11 @@ export class GameRoom extends Room<GameState> {
 
     this.setMetadata({ totalRounds, players: 0 });
 
-    const botNames = ["Alpha","Beta","Gamma","Delta","Echo","Foxtrot","Golf","Hotel","India","Juliett","Kilo","Lima"];
-    const botCount = options.bots ?? 0;
+    const botIds = options.botIds as string[] | undefined;
+    const botCount = botIds?.length ?? (options.bots ?? 0);
     for (let i = 0; i < botCount; i++) {
-      const profileIdx = (nextBotIndex + i) % botNames.length;
-      const botId = `bot_${profileIdx}`;
-      const botName = botNames[profileIdx]!;
+      const botId = botIds?.[i] ?? `bot_${(nextBotIndex + i) % BOT_NAMES.length}`;
+      const botName = BOT_NAMES[Number(botId.replace("bot_", ""))] ?? botId;
 
       const bot = new Player();
       bot.sessionId = botId;
@@ -96,11 +97,12 @@ export class GameRoom extends Room<GameState> {
 
       this.setMetadata({ totalRounds, players: this.state.players.length });
     }
-    nextBotIndex = (nextBotIndex + botCount) % botNames.length;
+    nextBotIndex = (nextBotIndex + botCount) % BOT_NAMES.length;
 
     this.onMessage("start_game", (_client) => {
       if (this.state.players.length < 2) return;
       startGame(this.state);
+      this.setMetadata({ ...this.metadata, status: "playing" });
       this.afterTurnAction();
     });
 
@@ -152,6 +154,47 @@ export class GameRoom extends Room<GameState> {
         client.send("meld_error", { message: (e as Error).message });
       }
     });
+
+    this.onMessage("resign", (client) => {
+      this.resolveMatch(client.sessionId);
+    });
+  }
+
+  private async resolveMatch(sessionId: string): Promise<void> {
+    const player = this.state.players.find((p) => p.sessionId === sessionId);
+    if (!player || player.isBot) return;
+
+    player.disconnected = true;
+    this.clearTurnTimer();
+
+    let iterations = 0;
+    while (iterations < 5000) {
+      iterations++;
+
+      if (this.state.phase === "round_ended") {
+        await this.persistRoundResults();
+        startNextRound(this.state);
+      }
+
+      if (this.state.status === "finished") {
+        await this.persistMatchEnd();
+        return;
+      }
+
+      if (this.state.status === "playing" && this.state.phase === "draw") {
+        const current = this.state.players[this.state.currentPlayerIndex];
+        if (current?.disconnected || current?.isBot) {
+          autoPlayTurn(this.state);
+          continue;
+        }
+      }
+
+      break;
+    }
+
+    if (this.state.status === "playing") {
+      this.startTurnTimer();
+    }
   }
 
   private async afterTurnAction(): Promise<void> {
@@ -232,18 +275,18 @@ export class GameRoom extends Room<GameState> {
   }
 
   async onJoin(client: any, _options: any) {
+    const timeout = this.disconnectTimeouts.get(client.auth.userId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.disconnectTimeouts.delete(client.auth.userId);
+    }
+
     const existingPlayer = this.state.players.find(
       (p) => p.userId === client.auth.userId,
     );
     if (existingPlayer) {
       existingPlayer.sessionId = client.sessionId;
       existingPlayer.disconnected = false;
-
-      const timeout = this.disconnectTimeouts.get(client.auth.userId);
-      if (timeout) {
-        clearTimeout(timeout);
-        this.disconnectTimeouts.delete(client.auth.userId);
-      }
 
       this.setMetadata({
         totalRounds: this.state.totalRounds,
@@ -288,6 +331,7 @@ export class GameRoom extends Room<GameState> {
         setTimeout(() => {
           if (this.state.status === "waiting") {
             startGame(this.state);
+            this.setMetadata({ ...this.metadata, status: "playing" });
             this.afterTurnAction().catch(() => {});
           }
         }, 500);
@@ -301,35 +345,15 @@ export class GameRoom extends Room<GameState> {
     );
     if (!player) return;
 
-    const userId = player.userId;
-    player.disconnected = true;
-
-    this.setMetadata({
-      totalRounds: this.state.totalRounds,
-      players: Math.max(0, this.clients.length - 1),
-    });
-
-    prisma.user.update({
-      where: { id: userId },
-      data: { lastSeen: new Date() },
-    }).catch(() => {});
-
-    const timeoutMs = this.clients.length <= 1 ? 10_000 : RECONNECT_TIMEOUT_MS;
+    this.resolveMatch(client.sessionId);
 
     const timeout = setTimeout(() => {
-      this.disconnectTimeouts.delete(userId);
-
-      const idx = this.state.players.findIndex((p) => p.userId === userId);
-      if (idx !== -1) {
-        this.state.players.splice(idx, 1);
-      }
-
       if (this.state.players.length === 0) {
         this.disconnect().catch(() => {});
       }
-    }, timeoutMs);
+    }, 60_000);
 
-    this.disconnectTimeouts.set(userId, timeout);
+    this.disconnectTimeouts.set(player.userId, timeout);
   }
 
   async onDispose() {

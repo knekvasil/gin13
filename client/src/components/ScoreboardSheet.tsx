@@ -12,7 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../components/ui/sheet";
-import { BarChart3, Sun, Moon } from "lucide-react";
+import { BarChart3, Sun, Moon, XCircle } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import type { MatchDetail } from "../stats/api";
 
@@ -39,7 +39,7 @@ function PlayerAvatar({ name, className }: { name: string; className?: string })
   );
 }
 
-export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDetail | null }) {
+export default function ScoreboardSheet({ matchDetail, onResign }: { matchDetail: MatchDetail | null; onResign?: () => void }) {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const toggleTheme = () => setTheme(resolvedTheme === "dark" ? "light" : "dark");
   const themeIcon = resolvedTheme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />;
@@ -85,6 +85,15 @@ export default function ScoreboardSheet({ matchDetail }: { matchDetail: MatchDet
 
   return (
     <div className="fixed right-2 top-2 z-40 flex gap-1">
+      {onResign && (
+        <button
+          onClick={onResign}
+          className="hover:bg-accent hover:text-accent-foreground rounded-md p-2 transition-colors text-muted-foreground"
+          aria-label="Resign"
+        >
+          <XCircle className="size-4" />
+        </button>
+      )}
       <button
         onClick={toggleTheme}
         className="hover:bg-accent hover:text-accent-foreground rounded-md p-2 transition-colors"

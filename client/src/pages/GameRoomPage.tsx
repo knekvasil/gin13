@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { fetchMatchDetail } from "../stats/api";
+import { fetchMatchDetail, type MatchDetail } from "../stats/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -141,6 +141,8 @@ export default function GameRoomPage() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [stagedCards, setStagedCards] = useState<StagedCard[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [resigned, setResigned] = useState(false);
+  const [matchResult, setMatchResult] = useState<MatchDetail | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -149,6 +151,43 @@ export default function GameRoomPage() {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  useEffect(() => {
+    if (!resigned || !roomId) return;
+    let cancelled = false;
+    const startTime = Date.now();
+    const poll = async () => {
+      while (!cancelled) {
+        if (Date.now() - startTime > 30_000) {
+          navigate("/lobby");
+          return;
+        }
+        try {
+          const res = await fetch(`${window.location.origin}/match/${roomId}?_=${Date.now()}`, {
+            headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
+          });
+          if (!res.ok) {
+            navigate("/lobby");
+            return;
+          }
+          const result: MatchDetail = await res.json();
+          if (result?.players?.length && result.players.some((p: any) => p.rank != null)) {
+            if (!cancelled) setMatchResult(result);
+            return;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [resigned, roomId]);
+
+  useEffect(() => {
+    if (matchResult) {
+      navigate("/lobby");
+    }
+  }, [matchResult, navigate]);
 
   const { data: matchDetail } = useQuery({
     queryKey: ["matchDetail", roomId, currentRound],
@@ -390,7 +429,7 @@ export default function GameRoomPage() {
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground font-sans">
-        <ScoreboardSheet matchDetail={matchDetail ?? null} />
+        <ScoreboardSheet matchDetail={matchDetail ?? null} onResign={() => { if (confirm("Resign? A bot will take over your hand.")) { send("resign"); setResigned(true); } }} />
 
         <div className="relative flex flex-1 flex-col overflow-hidden">
           {topOpponent && (
@@ -546,6 +585,13 @@ export default function GameRoomPage() {
               </div>
               {matchDetail && <MatchOverScreen matchDetail={matchDetail} />}
             </div>
+          </div>
+        )}
+
+        {resigned && !matchResult && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 gap-4">
+            <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-muted-foreground text-sm">Waiting for game to autoresolve...</p>
           </div>
         )}
       </div>
