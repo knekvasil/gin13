@@ -10,6 +10,16 @@ import {
   TableRow,
 } from "../components/ui/table";
 
+const RANK_LABELS = ["", "1st", "2nd", "3rd", "4th"];
+const RANK_COLORS = ["", "text-yellow-500", "text-gray-400", "text-amber-700", "text-muted-foreground"];
+
+function RankBadge({ rank }: { rank: number }) {
+  if (rank <= 3) {
+    return <span className={`font-bold text-sm tabular-nums ${RANK_COLORS[rank]}`}>{RANK_LABELS[rank]}</span>;
+  }
+  return <span className="text-muted-foreground text-sm tabular-nums">{rank}</span>;
+}
+
 export default function LeaderboardPage() {
   const navigate = useNavigate();
   const { data: leaderboard, isLoading, error } = useLeaderboard();
@@ -46,7 +56,7 @@ export default function LeaderboardPage() {
           <TableBody>
             {leaderboard.map((entry, index) => (
               <TableRow key={entry.userId}>
-                <TableCell className="font-medium">{index + 1}</TableCell>
+                <TableCell className="font-medium"><RankBadge rank={index + 1} /></TableCell>
                 <TableCell>{entry.displayName}</TableCell>
                 <TableCell>{entry.totalScore}</TableCell>
                 <TableCell>{entry.roundWins}</TableCell>

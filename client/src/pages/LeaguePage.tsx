@@ -62,7 +62,7 @@ function StandingsTable({ data }: { data: NonNullable<LeagueCurrent["season"]> }
             className="cursor-pointer hover:bg-muted/50"
             onClick={() => navigate(`/bot-league/${s.botId}`)}
           >
-            <TableCell className="text-xs tabular-nums text-muted-foreground">{i + 1}</TableCell>
+            <TableCell><RankLabel rank={i + 1} /></TableCell>
             <TableCell className="text-xs font-medium">{s.name}</TableCell>
             <TableCell><FormRow ranks={s.roundRanks} /></TableCell>
             <TableCell className="text-right text-xs font-semibold tabular-nums">{s.matchPoints}</TableCell>
@@ -102,13 +102,11 @@ function RoundDetails({ seasonId }: { seasonId: string }) {
                   <div key={pi} className="rounded-sm bg-muted/30 p-2 text-xs min-w-0">
                     <p className="text-muted-foreground mb-1 font-medium">Pod {pi + 1}</p>
                     {pod.results.map((res: any) => (
-                      <div key={res.botId} className="flex items-center gap-1.5 py-0.5">
-                        <RankLabel rank={res.rank} />
-                        <span className="truncate min-w-0 flex-shrink">{res.name}</span>
-                        <div className="ml-auto flex items-center gap-1">
-                          <FormRow ranks={res.roundRanks} />
-                          <span className="text-muted-foreground shrink-0 tabular-nums min-w-[2ch] text-right">{res.score}</span>
-                        </div>
+                      <div key={res.botId} className="grid grid-cols-[3ch_minmax(0,1fr)_64px_7ch] items-center py-0.5 gap-1.5">
+                        <span className="text-center"><RankLabel rank={res.rank} /></span>
+                        <span className="truncate">{res.name}</span>
+                        <span className="flex justify-center"><FormRow ranks={res.matchRoundRanks} /></span>
+                        <span className="text-muted-foreground tabular-nums text-right whitespace-nowrap">{res.score} pts</span>
                       </div>
                     ))}
                   </div>
@@ -189,8 +187,8 @@ export default function LeaguePage() {
                   {s.topThree.length > 0 && (
                     <div className="text-muted-foreground mt-1 flex gap-3">
                       {s.topThree.map((t, i) => (
-                        <span key={t.botId}>
-                          <FormBar rank={i + 1} /> {t.matchPoints}pts
+                        <span key={t.botId} className="flex items-center gap-1">
+                          <RankLabel rank={i + 1} /> {t.matchPoints}pts
                         </span>
                       ))}
                     </div>

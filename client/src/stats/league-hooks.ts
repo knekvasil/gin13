@@ -50,7 +50,7 @@ export interface LeagueRounds {
     status: string;
     pods: {
       matchId: string;
-      results: { botId: string; name: string; rank: number; score: number; roundRanks: (number | null)[] }[];
+      results: { botId: string; name: string; rank: number; score: number; roundRanks: (number | null)[]; matchRoundRanks: number[] }[];
     }[];
   }[];
 }

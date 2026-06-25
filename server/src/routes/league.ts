@@ -149,7 +149,7 @@ router.get("/league/rounds/:seasonId", async (req: Request, res: Response) => {
     })) as any[];
     const nameMap = new Map(users.map((u: any) => [u.id, u.displayName]));
 
-    // Build per-bot placement map across all rounds
+    // Build per-bot placement map across all Swiss rounds
     const placementMap = new Map<string, Map<number, number>>();
     for (const r of rounds) {
       for (const m of r.matches) {
@@ -166,26 +166,70 @@ router.get("/league/rounds/:seasonId", async (req: Request, res: Response) => {
       }
     }
 
+    // Build per-match, per-player sub-round placements
+    const roundResults = (await prisma.roundResult.findMany({
+      where: { matchId: { in: allMatchIds } },
+    })) as any[];
+
+    const matchSubRoundRanks = new Map<string, Map<string, number[]>>();
+    const resultsByMatch = new Map<string, any[]>();
+    for (const rr of roundResults) {
+      const list = resultsByMatch.get(rr.matchId) ?? [];
+      list.push(rr);
+      resultsByMatch.set(rr.matchId, list);
+    }
+    for (const [matchId, entries] of resultsByMatch) {
+      const roundsOfMatch = new Map<number, any[]>();
+      for (const e of entries) {
+        const group = roundsOfMatch.get(e.roundNumber) ?? [];
+        group.push(e);
+        roundsOfMatch.set(e.roundNumber, group);
+      }
+      const perPlayer: Map<string, number[]> = new Map();
+      for (const [rn, rrList] of roundsOfMatch) {
+        const sorted = [...rrList].sort((a: any, b: any) => a.handScore - b.handScore);
+        for (let rank = 0; rank < sorted.length; rank++) {
+          const playerId = sorted[rank]!.playerId;
+          let arr = perPlayer.get(playerId);
+          if (!arr) {
+            arr = [];
+            perPlayer.set(playerId, arr);
+          }
+          arr[rn - 1] = rank + 1;
+        }
+      }
+      matchSubRoundRanks.set(matchId, perPlayer);
+    }
+
     const roundDetails = rounds.map((r: any) => ({
       roundNumber: r.roundNumber,
       status: r.status,
-      pods: r.matches.map((m: any) => ({
-        matchId: m.matchId,
-        results: (matchPlayerMap.get(m.matchId) ?? []).map((mp: any) => {
-          const placements = placementMap.get(mp.userId);
-          const roundRanks: (number | null)[] = [];
-          for (let rn = 1; rn <= season.roundCount; rn++) {
-            roundRanks.push(placements?.get(rn) ?? null);
-          }
-          return {
-            botId: mp.userId,
-            name: nameMap.get(mp.userId) ?? mp.userId,
-            rank: mp.finalRank,
-            score: mp.score,
-            roundRanks,
-          };
-        }),
-      })),
+      pods: r.matches.map((m: any) => {
+        const subRoundMap = matchSubRoundRanks.get(m.matchId) ?? new Map();
+        return {
+          matchId: m.matchId,
+          results: (matchPlayerMap.get(m.matchId) ?? []).map((mp: any) => {
+            const placements = placementMap.get(mp.userId);
+            const roundRanks: (number | null)[] = [];
+            for (let rn = 1; rn <= season.roundCount; rn++) {
+              roundRanks.push(placements?.get(rn) ?? null);
+            }
+            const matchRoundRanks: number[] = [];
+            for (let rn = 1; rn <= 13; rn++) {
+              const ranks = subRoundMap.get(mp.userId);
+              matchRoundRanks.push(ranks?.[rn - 1] ?? 4);
+            }
+            return {
+              botId: mp.userId,
+              name: nameMap.get(mp.userId) ?? mp.userId,
+              rank: mp.finalRank,
+              score: mp.score,
+              roundRanks,
+              matchRoundRanks,
+            };
+          }),
+        };
+      }),
     }));
 
     res.json({ seasonName: season.name, roundCount: season.roundCount, rounds: roundDetails });
