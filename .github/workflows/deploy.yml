@@ -25,9 +25,9 @@ jobs:
 
       - name: Build and push
         run: |
-          IMAGE=ghcr.io/${{ github.repository }}:latest
-          docker build -t $IMAGE .
-          docker push $IMAGE
+          IMAGE=ghcr.io/${{ github.repository }}
+          docker build -t $IMAGE:latest -t $IMAGE:${{ github.sha }} .
+          docker push --all-tags $IMAGE
 
       - name: Deploy to k3s
         uses: appleboy/ssh-action@v1
