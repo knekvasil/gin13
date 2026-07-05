@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       packages: write
@@ -30,12 +30,7 @@ jobs:
           docker push --all-tags $IMAGE
 
       - name: Deploy to k3s
-        uses: appleboy/ssh-action@v1
-        with:
-          host: 192.168.1.206
-          username: kaj
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            kubectl set image deployment/gin13 -n gin13 \
-              app=ghcr.io/${{ github.repository }}:${{ github.sha }}
-            kubectl rollout status deployment/gin13 -n gin13 --timeout=120s
+        run: |
+          kubectl set image deployment/gin13 -n gin13 \
+            app=ghcr.io/${{ github.repository }}:${{ github.sha }}
+          kubectl rollout status deployment/gin13 -n gin13 --timeout=120s
