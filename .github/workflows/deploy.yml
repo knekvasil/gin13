@@ -1,26 +1,41 @@
-name: Build and Push
+name: Deploy gin13
 
 on:
   push:
     branches: [master]
+    paths:
+      - 'server/**'
+      - 'client/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'Dockerfile'
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}:latest
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+      - name: Deploy to k3s
+        uses: appleboy/ssh-action@v1
         with:
-          context: .
-          push: true
-          tags: |
-            knekvasil/gin13:latest
-            knekvasil/gin13:${{ github.sha }}
+          host: 192.168.1.206
+          username: kaj
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            kubectl set image deployment/gin13 -n gin13 \
+              app=ghcr.io/${{ github.repository }}:${{ github.sha }}
+            kubectl rollout status deployment/gin13 -n gin13 --timeout=120s
